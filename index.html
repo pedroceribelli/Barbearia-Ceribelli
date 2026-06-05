@@ -403,10 +403,13 @@ let state = {
     servicos:['Corte','Barba','Corte + Barba','Hidratação','Corte + Barba + Hidratação'],
   },
 };
+function produtosSemFoto(lista){ return lista.map(({fotoUrl,...r})=>fotoUrl&&fotoUrl.startsWith('data:')?r:{fotoUrl,...r}); }
 function save(key){
   LS.set('bc:'+key, state[key]);
-  if(db){ db.collection('dados').doc(key).set({items:state[key]}).catch(e=>console.warn('FB save',e)); }
-  else { cloudSave(key, state[key]); }
+  if(db){
+    const data = key==='produtos' ? produtosSemFoto(state[key]) : state[key];
+    db.collection('dados').doc(key).set({items:data}).catch(e=>{ console.warn('FB save',key,e); setCloudStatus('⚠️ Erro ao salvar na nuvem','#EF4444'); });
+  } else { cloudSave(key, state[key]); }
 }
 function saveConfig(){
   LS.set('bc:config', state.config);
@@ -444,6 +447,36 @@ async function importarContato(campoNome, campoTel){
     const telEl=document.getElementById(campoTel); if(telEl) telEl.value=(c.tel&&c.tel[0])||'';
   }catch(e){ console.warn('Contato:',e); }
 }
+/* ============ FOTO (compressão automática) ============ */
+function comprimirFoto(dataUrl){ return new Promise(res=>{ const img=new Image(); img.onload=()=>{ const MAX=600; let w=img.width,h=img.height; if(w>MAX){h=Math.round(h*MAX/w);w=MAX;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); res(c.toDataURL('image/jpeg',0.65)); }; img.src=dataUrl; }); }
+
+/* ============ NOTIFICAÇÕES ============ */
+let notifExibidas=new Set(JSON.parse(LS.get('bc:notifExibidas')||'[]'));
+function salvarNotifExibidas(){ LS.set('bc:notifExibidas',JSON.stringify([...notifExibidas])); }
+async function pedirPermissaoNotif(){
+  if(!('Notification' in window)){ alert('Seu navegador não suporta notificações.'); return; }
+  const perm=await Notification.requestPermission();
+  if(perm==='granted'){ setCloudStatus('🔔 Notificações ativadas!','#22C55E'); render(); }
+  else { alert('Permissão negada.\niOS: Configurações → Safari → Site → Notificações\nAndroid: Configurações → Chrome → Notificações do site'); }
+}
+function mostrarNotificacao(titulo,corpo,tag){
+  if(Notification.permission!=='granted') return;
+  try{ const n=new Notification(titulo,{body:corpo,tag,icon:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="20" fill="#C9A84C"/><text y=".9em" font-size="72" x="14">✂️</text></svg>'),renotify:false}); n.onclick=()=>{window.focus();setView('lembretes');}; }catch(e){}
+}
+function verificarNotificacoes(){
+  if(Notification.permission!=='granted') return;
+  lembretesPendentes().forEach(p=>{
+    const key=p.key+'_notif';
+    if(!notifExibidas.has(key)){ notifExibidas.add(key); salvarNotifExibidas();
+      mostrarNotificacao(`⏰ Lembrete: ${p.ag.clienteNome}`,`${p.ag.servico} às ${p.ag.hora} — pronto para enviar`,key); }
+  });
+  (state.notifAlteracao||[]).filter(n=>!n.enviado).forEach(n=>{
+    const key=n.id+'_notif';
+    if(!notifExibidas.has(key)){ notifExibidas.add(key); salvarNotifExibidas();
+      mostrarNotificacao(`⚠️ Alteração: ${n.clienteNome}`,`Novo horário: ${fmtDate(n.novaData)} às ${n.novaHora}`,key); }
+  });
+}
+
 function openDrawer(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('backdrop').classList.add('show'); }
 function closeDrawer(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('backdrop').classList.remove('show'); }
 
@@ -735,8 +768,13 @@ function viewLembretes(){
   const notifs=state.notifAlteracao.filter(n=>!n.enviado);
   const fmtQuando=(d)=>{ const hoje=toISO(d)===todISOsafe(); return (hoje?'hoje':parseLocalDate(toISO(d)).toLocaleDateString('pt-BR',{day:'numeric',month:'short'}))+' às '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
   const totalBadge=pend.length+notifs.length;
+  const notifStatus=!('Notification' in window)?'unsupported':Notification.permission;
+  const notifBanner=notifStatus==='granted'?''
+    :notifStatus==='denied'?`<div style="padding:10px 14px;background:var(--red-bg);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--red)">🔕 Notificações bloqueadas. Habilite nas configurações do navegador.</div>`
+    :`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:12px;color:var(--amber)">🔔 Ative as notificações para receber alertas no celular quando um lembrete estiver pronto.</span><button class="btn btn-amber btn-sm" style="white-space:nowrap" onclick="pedirPermissaoNotif()">Ativar</button></div>`;
   return `
     <div class="sec-head"><div><h1>Lembretes</h1><p>${pend.length} para enviar agora · ${prox.length} agendado(s)${notifs.length?' · '+notifs.length+' alteração(ões)':''}</p></div></div>
+    ${notifBanner}
     <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">📲 Toque em "Enviar no WhatsApp": a mensagem abre pronta, é só apertar enviar.</div>
     ${notifs.length?`<h3 style="font-size:13px;margin-bottom:10px;color:var(--amber)">⚠️ Alterações de Horário</h3>
     ${notifs.map(n=>`<div class="card list-item" style="padding:15px;border-color:var(--amber-bg)">
@@ -1099,7 +1137,8 @@ function modalProduto(id){
 function lerFoto(e){
   const f=e.target.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=ev=>{ prodFoto=ev.target.result;
+  r.onload=async ev=>{
+    prodFoto=await comprimirFoto(ev.target.result);
     document.getElementById('p-foto-label').innerHTML=`<div style="position:relative"><img src="${prodFoto}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"><div style="position:absolute;bottom:8px;right:8px;padding:3px 8px;background:rgba(0,0,0,.7);border-radius:5px;font-size:11px">Alterar</div></div><input type="file" accept="image/*" style="display:none" onchange="lerFoto(event)">`;
   };
   r.readAsDataURL(f);
@@ -1393,10 +1432,15 @@ async function boot(){
     try{
       const snap = await db.collection('dados').get();
       if(!snap.empty){
+        const localPrds = LS.get('bc:produtos') || [];
         snap.forEach(doc=>{
           const d=doc.data();
           if(doc.id==='config'){ if(d&&d.value) state.config=d.value; }
           else if(doc.id==='notas'){ if(d&&d.value!==undefined) state.notas=d.value; }
+          else if(doc.id==='produtos'&&d&&d.items){
+            // mescla fotos do localStorage (não salvas no Firebase por tamanho)
+            state.produtos=d.items.map(p=>{ const loc=localPrds.find(lp=>lp.id===p.id); return loc?.fotoUrl?{...p,fotoUrl:loc.fotoUrl}:p; });
+          }
           else if(d&&d.items) state[doc.id]=d.items;
         });
         migrarDados();
@@ -1420,6 +1464,9 @@ async function boot(){
     setCloudStatus(ok?'☁️ Supabase sincronizado':'⚠️ Sem conexão — dados locais', ok?'#22C55E':'#F59E0B');
   }
   render();
+  // Verificar notificações a cada 60 segundos
+  verificarNotificacoes();
+  setInterval(verificarNotificacoes, 60000);
 }
 boot();
 window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); } });

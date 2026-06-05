@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Barbearia Ceribelli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0A; --card:#141414; --modal:#181818; --border:#252525; --border2:#2E2E2E;
+    --gold:#C9A84C; --gold-l:#E8C870; --gold-m:#7A6030;
+    --green:#22C55E; --green-bg:#052E16; --red:#EF4444; --red-bg:#2D0808;
+    --amber:#F59E0B; --amber-bg:#2D1B00; --blue:#60A5FA; --blue-bg:#0D1B2E;
+    --text:#F5F5F5; --text-2:#9CA3AF; --text-3:#6B7280;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'DM Sans','Segoe UI',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit;cursor:pointer}
+  input,select,textarea{font-family:inherit}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#2A2A2A;border-radius:4px}
+
+  /* ===== LAYOUT ===== */
+  #app{display:flex;min-height:100vh;min-height:100dvh}
+
+  /* Sidebar desktop (rail de 70px) */
+  #sidebar{
+    width:70px; flex-shrink:0; background:#0D0D0D; border-right:1px solid var(--border);
+    display:flex; flex-direction:column; align-items:center; padding:14px 0; gap:2px;
+    position:sticky; top:0; height:100vh; height:100dvh; z-index:50;
+  }
+  .side-logo{width:38px;height:38px;border-radius:50%;
+    background:linear-gradient(135deg,var(--gold),var(--gold-m));
+    display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;width:54px;
+    padding:9px 6px;border-radius:10px;background:transparent;border:1px solid transparent;
+    color:var(--text-3);transition:all .2s}
+  .nav-btn span{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .nav-btn.active{background:rgba(201,168,76,.1);border-color:rgba(201,168,76,.2);color:var(--gold)}
+  .nav-btn .lbl-full{display:none}
+  .side-head{display:none}
+
+  /* Backdrop (só mobile) */
+  #backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;
+    opacity:0;pointer-events:none;transition:opacity .3s ease}
+  #backdrop.show{opacity:1;pointer-events:auto}
+
+  /* Main */
+  main{flex:1;min-width:0;width:100%;overflow-y:auto}
+  #topbar{display:none}
+  #view{padding:22px}
+
+  /* ===== COMPONENTES ===== */
+  .sec-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;gap:12px}
+  .sec-head h1{font-size:22px;font-weight:700}
+  .sec-head p{color:var(--text-2);font-size:12px;margin-top:3px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}
+  .btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;border:1px solid var(--border);background:transparent;color:var(--text-2);transition:opacity .15s}
+  .btn:hover{opacity:.85}
+  .btn-sm{padding:5px 10px;font-size:11px}
+  .btn-primary{background:var(--gold);border-color:var(--gold);color:#0A0A0A}
+  .btn-green{background:var(--green-bg);border-color:var(--green);color:var(--green)}
+  .btn-red{background:var(--red-bg);border-color:var(--red);color:var(--red)}
+  .btn-amber{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
+  .inp{width:100%;padding:10px 14px;background:#0F0F0F;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none}
+  .inp:focus{border-color:var(--gold-m)}
+  .lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text-3);text-transform:uppercase;margin-bottom:6px}
+  .field{margin-bottom:14px}
+  select.inp{appearance:none;cursor:pointer}
+  textarea.inp{resize:vertical;min-height:60px}
+  .badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.05em;display:inline-block}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .empty{text-align:center;padding:48px;color:var(--text-3)}
+  .empty p{margin:12px 0 16px;font-size:14px}
+  .list-item{margin-bottom:10px}
+  .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:#0F0F0F;border:1px solid var(--border);border-radius:20px;font-size:12px}
+  .chip button{background:none;border:none;color:var(--red);font-size:14px;line-height:1;padding:0}
+
+  /* Modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;z-index:1300;padding:16px}
+  .modal{background:var(--modal);border:1px solid var(--border2);border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:90vh;overflow-y:auto}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+  .modal-head h2{font-size:18px;font-weight:700}
+  .modal-head button{background:none;border:none;color:var(--text-3)}
+  .modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:8px}
+
+  /* Toggle entrada/saida + pagamento */
+  .toggle-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px}
+  .toggle{padding:10px;border-radius:8px;border:2px solid var(--border);background:transparent;color:var(--text-3);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px}
+  .toggle.on-green{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+  .toggle.on-red{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+  .toggle.on-gold{border-color:var(--gold);background:rgba(201,168,76,.1);color:var(--gold)}
+  .pay-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .pay{padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-2);font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:4px}
+  .pay.on{border-color:var(--gold);background:rgba(201,168,76,.1);color:var(--gold)}
+
+  /* Tabs config */
+  .tabs{display:flex;gap:3px;margin-bottom:22px;background:#0D0D0D;padding:4px;border-radius:10px}
+  .tab{flex:1;padding:7px 4px;border-radius:7px;border:none;background:transparent;color:var(--text-3);font-size:12px;font-weight:600}
+  .tab.active{background:var(--card);color:var(--gold)}
+
+  /* ===== RESPONSIVO MOBILE (<768px) ===== */
+  @media (max-width:768px){
+    #sidebar{
+      position:fixed; top:0; left:0; bottom:0; height:100vh; height:100dvh;
+      width:248px; max-width:80vw; align-items:stretch; padding:16px;
+      transform:translateX(-100%); transition:transform .3s ease; z-index:1200;
+      overflow-y:auto; -webkit-overflow-scrolling:touch; gap:4px;
+    }
+    #sidebar.open{transform:translateX(0)}
+    .side-logo{margin-bottom:0}
+    .side-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .side-head .brand{display:flex;align-items:center;gap:10px}
+    .side-head .brand span{font-weight:700;font-size:14px}
+    .side-head button{background:none;border:none;color:var(--text-3)}
+    .nav-btn{flex-direction:row;width:100%;justify-content:flex-start;gap:12px;padding:12px 14px;color:var(--text-2)}
+    .nav-btn span.lbl-short{display:none}
+    .nav-btn .lbl-full{display:inline;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0}
+    #topbar{
+      display:flex;align-items:center;gap:12px;padding:12px 16px;
+      position:sticky;top:0;z-index:900;
+      background:rgba(13,13,13,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+      border-bottom:1px solid var(--border)
+    }
+    #topbar .burger{background:none;border:1px solid var(--border);border-radius:9px;padding:8px;color:var(--gold);display:flex;align-items:center}
+    #topbar .brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+    #topbar .brand span{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #topbar .top-action{background:none;border:1px solid var(--border);border-radius:9px;padding:8px;color:var(--gold);display:flex;align-items:center;position:relative;flex-shrink:0}
+    #lembrete-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;line-height:16px}
+    #view{padding:16px}
+    .row2{grid-template-columns:1fr}
+    .sec-head{flex-direction:column;align-items:stretch}
+    .sec-head .btn-primary{align-self:flex-start}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <nav id="sidebar">
+    <div class="side-head">
+      <div class="brand">
+        <div class="side-logo" style="width:36px;height:36px;margin:0"></div>
+        <span>Ceribelli</span>
+      </div>
+      <button onclick="closeDrawer()" aria-label="Fechar menu"></button>
+    </div>
+    <div class="side-logo only-desktop"></div>
+    <div id="nav-items"></div>
+  </nav>
+
+  <div id="backdrop" onclick="closeDrawer()"></div>
+
+  <main>
+    <header id="topbar">
+      <button class="burger" onclick="openDrawer()" aria-label="Abrir menu"></button>
+      <div class="brand" id="topbar-brand"><span>Barbearia Ceribelli</span></div>
+      <button class="top-action" id="btn-sino" onclick="setView('lembretes')" aria-label="Lembretes"><span id="lembrete-badge"></span></button>
+      <button class="top-action" id="btn-novo" onclick="modalAgenda()" aria-label="Novo agendamento"></button>
+    </header>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="modal-root"></div>
+
+<!-- Firebase (nuvem) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+/* ============ STORAGE (localStorage com fallback em memória) ============ */
+const LS = {
+  mem:{},
+  get(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return this.mem[k]||null; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ this.mem[k]=v; } }
+};
+
+/* ============ FIREBASE (NUVEM) ============ */
+/* Chaves do projeto Firebase — Barbearia Ceribelli */
+const firebaseConfig = {
+  apiKey: "AIzaSyB50HFYQmrCwxbb6ixmoJBpYDKDO4WUdBE",
+  authDomain: "barbearia-ceribelli.firebaseapp.com",
+  projectId: "barbearia-ceribelli",
+  storageBucket: "barbearia-ceribelli.firebasestorage.app",
+  messagingSenderId: "342965780941",
+  appId: "1:342965780941:web:2ff83d970fe1331a87c484"
+};
+let db = null;
+try {
+  if (window.firebase && firebaseConfig.apiKey && firebaseConfig.apiKey !== "COLE_AQUI") {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  }
+} catch(e){ console.warn('Firebase não iniciado:', e); }
+
+function setSync(msg){
+  let el = document.getElementById('sync-status');
+  if(!msg){ if(el) el.remove(); return; }
+  if(!el){ el=document.createElement('div'); el.id='sync-status';
+    el.style.cssText='position:fixed;bottom:12px;right:12px;background:#141414;border:1px solid #252525;color:#9CA3AF;font-size:11px;padding:6px 12px;border-radius:20px;z-index:2000';
+    document.body.appendChild(el); }
+  el.textContent=msg;
+  if(msg.indexOf('Sincronizado')>-1) setTimeout(()=>{ const e=document.getElementById('sync-status'); if(e) e.remove(); }, 2500);
+}
+
+/* ============ HELPERS ============ */
+const uid = () => Math.random().toString(36).slice(2,10);
+const fmtMoney = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; };
+const todayStr = () => new Date().toISOString().split('T')[0];
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const calcLiquido = (v,fp) => fp==='debito'?v*(1-state.config.taxaDebito/100):fp==='credito'?v*(1-state.config.taxaCredito/100):v;
+const fmtPayment = fp => ({pix:'Pix',dinheiro:'Dinheiro',debito:`Débito (−${state.config.taxaDebito}%)`,credito:`Crédito (−${state.config.taxaCredito}%)`}[fp]||fp);
+
+/* Telefone -> formato wa.me (só dígitos, com 55) */
+function limparTelefone(tel){
+  let d = String(tel||'').replace(/\D/g,'');
+  if(d.length===10 || d.length===11) d = '55'+d;
+  return d;
+}
+/* Substitui variáveis do template pelos dados do agendamento */
+function montarMensagem(tpl, a){
+  return (tpl||'')
+    .replace(/\{nome\}/g, a.clienteNome||'')
+    .replace(/\{hora\}/g, a.hora||'')
+    .replace(/\{data\}/g, fmtDate(a.data)||'')
+    .replace(/\{servico\}/g, a.servico||'')
+    .replace(/\{barbeiro\}/g, a.barbeiro||'');
+}
+function abrirWhatsApp(tel, msg){
+  const num = limparTelefone(tel);
+  if(!num){ alert('Cliente sem telefone cadastrado.'); return; }
+  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg), '_blank');
+}
+/* Preço de um serviço pelo nome */
+function servicoPreco(nome){
+  const s = (state.config.servicos||[]).find(x=>x && x.nome===nome);
+  return s ? (s.preco||0) : 0;
+}
+function servicoDuracao(nome){
+  const s = (state.config.servicos||[]).find(x=>x && x.nome===nome);
+  return s ? (s.duracao||0) : 0;
+}
+/* Datas (formato local YYYY-MM-DD) */
+function parseLocalDate(s){ const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d); }
+function toISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function weekDays(refISO){
+  const d=parseLocalDate(refISO); const dow=(d.getDay()+6)%7; // 0=segunda
+  const seg=new Date(d); seg.setDate(d.getDate()-dow);
+  const arr=[]; for(let i=0;i<7;i++){ const x=new Date(seg); x.setDate(seg.getDate()+i); arr.push(toISO(x)); }
+  return arr;
+}
+function countAgDia(iso){ return state.agendamentos.filter(a=>a.data===iso && a.status!=='cancelado').length; }
+function demandaBg(n){ if(n===0)return 'transparent'; if(n<=2)return 'rgba(201,168,76,0.15)'; if(n<=4)return 'rgba(201,168,76,0.40)'; return 'rgba(201,168,76,0.68)'; }
+function weekStrip(){
+  const dias=weekDays(agFiltro); const nomes=['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
+  const prev=toISO(new Date(parseLocalDate(agFiltro).getTime()-7*86400000));
+  const next=toISO(new Date(parseLocalDate(agFiltro).getTime()+7*86400000));
+  return `<div class="card" style="padding:14px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <button class="btn btn-sm" onclick="agFiltro='${prev}';render()">‹ Semana</button>
+      <span style="font-size:12px;color:var(--text-2);font-weight:600">${parseLocalDate(dias[0]).toLocaleDateString('pt-BR',{day:'numeric',month:'short'})} – ${parseLocalDate(dias[6]).toLocaleDateString('pt-BR',{day:'numeric',month:'short'})}</span>
+      <button class="btn btn-sm" onclick="agFiltro='${next}';render()">Semana ›</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">
+      ${dias.map((iso,i)=>{ const n=countAgDia(iso); const sel=iso===agFiltro; const hoje=iso===todayStr(); const dnum=parseLocalDate(iso).getDate();
+        return `<button onclick="agFiltro='${iso}';render()" style="border:1px solid ${sel?'var(--gold)':(hoje?'var(--text-3)':'var(--border)')};background:${demandaBg(n)};border-radius:8px;padding:7px 2px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <span style="font-size:9px;color:var(--text-3);font-weight:700">${nomes[i]}</span>
+          <span style="font-size:15px;font-weight:700;color:${sel?'var(--gold)':'var(--text)'}">${dnum}</span>
+          <span style="font-size:9px;font-weight:700;color:${n>0?'var(--gold)':'var(--text-3)'}">${n>0?n:'—'}</span>
+        </button>`; }).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px;font-size:10px;color:var(--text-3)">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;border-radius:3px;background:rgba(201,168,76,0.15)"></span>tranquilo</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;border-radius:3px;background:rgba(201,168,76,0.40)"></span>médio</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:11px;height:11px;border-radius:3px;background:rgba(201,168,76,0.68)"></span>cheio</span>
+    </div>
+  </div>`;
+}
+/* Migra dados antigos para os novos formatos, sem perder nada */
+function migrarDados(){
+  const c = state.config;
+  c.servicos = Array.isArray(c.servicos) ? c.servicos.map(s=> typeof s==='string' ? {nome:s, preco:0, duracao:30} : {duracao:30, ...s}) : [];
+  if(!c.confirmacao) c.confirmacao = 'Olá {nome}! ✅ Seu horário na Barbearia Ceribelli está confirmado para {data} às {hora} ({servico}). Qualquer coisa, é só chamar!';
+  if(!Array.isArray(c.lembretes)) c.lembretes = [];
+  if(!Array.isArray(state.lembretesEnviados)) state.lembretesEnviados = [];
+}
+
+/* ============ ÍCONES ============ */
+function svg(paths,size=20,color='currentColor'){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+const ICON = {
+  home:(p,c)=>svg('<path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-5H9v5H4a1 1 0 01-1-1V9.5z"/>',p,c),
+  calendar:(p,c)=>svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',p,c),
+  users:(p,c)=>svg('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',p,c),
+  dollar:(p,c)=>svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5C9.5 8.1 10.6 7 12 7s2.5 1.1 2.5 2.5S13.4 12 12 12s-2.5 1.1-2.5 2.5S10.6 17 12 17"/>',p,c),
+  package:(p,c)=>svg('<path d="M12 2l10 5.5v9L12 22 2 16.5v-9z"/><path d="M12 22V11M22 7.5l-10 4-10-4"/>',p,c),
+  settings:(p,c)=>svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>',p,c),
+  scissors:(p,c)=>svg('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.12 15.88M14.47 14.48L20 20M8.12 8.12L12 12"/>',p,c),
+  search:(p,c)=>svg('<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',p,c),
+  x:(p,c)=>svg('<path d="M18 6L6 18M6 6l12 12"/>',p,c),
+  menu:(p,c)=>svg('<path d="M3 6h18M3 12h18M3 18h18"/>',p,c),
+  up:(p,c)=>svg('<path d="M12 19V5M5 12l7-7 7 7"/>',p,c),
+  down:(p,c)=>svg('<path d="M12 5v14M5 12l7 7 7-7"/>',p,c),
+  warning:(p,c)=>svg('<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',p,c),
+  check:(p,c)=>svg('<path d="M20 6L9 17l-5-5"/>',p,c),
+  clock:(p,c)=>svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',p,c),
+  bell:(p,c)=>svg('<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>',p,c),
+  plus:(p,c)=>svg('<path d="M12 5v14M5 12h14"/>',p,c),
+};
+
+/* ============ ESTADO ============ */
+let state = {
+  view:'dashboard',
+  clientes: LS.get('bc:clientes') || [],
+  agendamentos: LS.get('bc:agendamentos') || [],
+  lancamentos: LS.get('bc:lancamentos') || [],
+  produtos: LS.get('bc:produtos') || [],
+  lembretesEnviados: LS.get('bc:lembretesEnviados') || [],
+  config: LS.get('bc:config') || {
+    taxaDebito:1.37, taxaCredito:3.15,
+    barbearia:{nome:'Barbearia Ceribelli',endereco:''},
+    lembretes:[
+      {id:'l1',horasAntes:24,template:'Olá {nome}! 🗓️ Lembrando do seu horário amanhã às {hora} para {servico} na Barbearia Ceribelli. Te esperamos! ✂️',ativo:true},
+      {id:'l2',horasAntes:1,template:'Olá {nome}! ⏰ Seu horário é em 1 hora ({hora}) para {servico}. Já estamos te esperando! ✂️',ativo:true},
+    ],
+    locais:[{id:'loc1',nome:'Unidade Principal'}],
+    barbeiros:['Pedro'],
+    servicos:['Corte','Barba','Corte + Barba','Hidratação','Corte + Barba + Hidratação'],
+  },
+};
+function save(key){
+  LS.set('bc:'+key, state[key]);
+  if(db){ db.collection('dados').doc(key).set({items: state[key]}).catch(e=>console.warn('cloud save',e)); }
+}
+function saveConfig(){
+  LS.set('bc:config', state.config);
+  if(db){ db.collection('dados').doc('config').set({value: state.config}).catch(e=>console.warn('cloud config',e)); }
+}
+
+/* ============ DRAWER MOBILE ============ */
+function openDrawer(){ document.getElementById('sidebar').classList.add('open'); document.getElementById('backdrop').classList.add('show'); }
+function closeDrawer(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('backdrop').classList.remove('show'); }
+
+/* ============ NAVEGAÇÃO ============ */
+const NAV = [
+  {id:'dashboard',ic:'home',l:'Início'},
+  {id:'agenda',ic:'calendar',l:'Agenda'},
+  {id:'lembretes',ic:'clock',l:'Lembretes'},
+  {id:'clientes',ic:'users',l:'Clientes'},
+  {id:'financeiro',ic:'dollar',l:'Financeiro'},
+  {id:'produtos',ic:'package',l:'Produtos'},
+  {id:'configuracoes',ic:'settings',l:'Config.'},
+];
+function setView(v){ state.view=v; closeDrawer(); render(); }
+function renderNav(){
+  document.getElementById('nav-items').innerHTML = NAV.map(n=>`
+    <button class="nav-btn ${state.view===n.id?'active':''}" onclick="setView('${n.id}')">
+      ${ICON[n.ic](20)}
+      <span class="lbl-short">${n.l}</span><span class="lbl-full">${n.l}</span>
+    </button>`).join('');
+}
+
+/* ============ STATUS ============ */
+const ST_COLOR={agendado:'var(--gold)',concluido:'var(--green)',cancelado:'var(--red)'};
+const ST_BG={agendado:'rgba(201,168,76,.1)',concluido:'var(--green-bg)',cancelado:'var(--red-bg)'};
+const ST_LBL={agendado:'Agendado',concluido:'Concluído',cancelado:'Cancelado'};
+
+/* ============ RENDER ROUTER ============ */
+function render(){
+  renderNav();
+  const el = document.getElementById('view');
+  el.innerHTML = ({
+    dashboard:viewDashboard, agenda:viewAgenda, lembretes:viewLembretes, clientes:viewClientes,
+    financeiro:viewFinanceiro, produtos:viewProdutos, configuracoes:viewConfig,
+  }[state.view])();
+  atualizarBadgeLembretes();
+}
+function atualizarBadgeLembretes(){
+  const b=document.getElementById('lembrete-badge'); if(!b) return;
+  const n=lembretesPendentes().length;
+  if(n>0){ b.textContent=n>9?'9+':n; b.style.display='flex'; } else { b.style.display='none'; }
+}
+
+/* ============ DASHBOARD ============ */
+function viewDashboard(){
+  const t=todayStr();
+  const aHoje=state.agendamentos.filter(a=>a.data===t&&a.status!=='cancelado');
+  const lHoje=state.lancamentos.filter(l=>l.data===t);
+  const receita=lHoje.filter(l=>l.tipo==='entrada').reduce((s,l)=>s+(l.valorLiquido??l.valor),0);
+  const despesas=lHoje.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  const baixo=state.produtos.filter(p=>p.estoque!==''&&p.estoque!=null&&parseInt(p.estoque)<=2);
+  const prox=state.agendamentos.filter(a=>a.data>=t&&a.status==='agendado').sort((a,b)=>`${a.data}${a.hora}`>`${b.data}${b.hora}`?1:-1).slice(0,5);
+  const stats=[
+    {l:'Receita Hoje',v:fmtMoney(receita),ic:'up',c:'var(--green)',bg:'var(--green-bg)'},
+    {l:'Despesas Hoje',v:fmtMoney(despesas),ic:'down',c:'var(--red)',bg:'var(--red-bg)'},
+    {l:'Agend. Hoje',v:aHoje.length,ic:'calendar',c:'var(--gold)',bg:'rgba(201,168,76,.08)'},
+    {l:'Clientes',v:state.clientes.length,ic:'users',c:'var(--blue)',bg:'var(--blue-bg)'},
+  ];
+  return `
+    <div style="margin-bottom:22px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${ICON.scissors(18,'#C9A84C')}<h1 style="font-size:19px;font-weight:700">Barbearia Ceribelli</h1></div>
+      <p style="color:var(--text-2);font-size:12px">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
+    </div>
+    ${baixo.length?`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--amber)">${ICON.warning(15,'#F59E0B')}<span><strong>${baixo.length} produto(s) com estoque baixo:</strong> ${baixo.map(p=>esc(p.nome)).join(', ')}</span></div>`:''}
+    ${(()=>{ const pend=lembretesPendentes(); return pend.length?`<div onclick="setView('lembretes')" style="cursor:pointer;padding:10px 14px;background:var(--green-bg);border:1px solid #22C55E40;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--green)">${ICON.clock(15,'#22C55E')}<span><strong>${pend.length} lembrete(s) para enviar</strong> — toque para abrir</span></div>`:''; })()}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      ${stats.map(s=>`<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px">
+        <div style="width:38px;height:38px;border-radius:10px;background:${s.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">${ICON[s.ic](17,s.c)}</div>
+        <div><div style="font-size:16px;font-weight:700;color:${s.c}">${s.v}</div><div style="font-size:10px;color:var(--text-3);margin-top:1px">${s.l}</div></div>
+      </div>`).join('')}
+    </div>
+    <div class="card">
+      <h3 style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:14px">${ICON.calendar(15,'#C9A84C')} Próximos Agendamentos</h3>
+      ${prox.length?prox.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
+        <div><div style="font-weight:600;font-size:13px;color:${ST_COLOR[a.status]}">${esc(a.clienteNome)}</div><div style="font-size:11px;color:var(--text-2);margin-top:1px">${esc(a.servico)}${a.barbeiro?' · '+esc(a.barbeiro):''}</div></div>
+        <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">${esc(a.hora)}</div><div style="font-size:10px;color:var(--text-3)">${fmtDate(a.data)}</div></div>
+      </div>`).join(''):'<p style="color:var(--text-3);font-size:13px;text-align:center;padding:12px 0">Nenhum agendamento próximo</p>'}
+    </div>`;
+}
+
+/* ============ AGENDA ============ */
+let agFiltro = todayStr();
+let agModo='novo';
+function viewAgenda(){
+  const lista=state.agendamentos.filter(a=>!agFiltro||a.data===agFiltro).sort((a,b)=>a.hora>b.hora?1:-1);
+  return `
+    <div class="sec-head"><div><h1>Agenda</h1><p>${lista.length} agendamento(s) no dia</p></div>
+      <button class="btn btn-primary" onclick="modalAgenda()">+ Novo Agendamento</button></div>
+    ${weekStrip()}
+    <div style="margin-bottom:18px"><input type="date" class="inp" style="max-width:200px" value="${agFiltro}" onchange="agFiltro=this.value;render()"></div>
+    ${lista.length?lista.map(a=>`<div class="card list-item" style="padding:15px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-weight:700;font-size:14px;color:${ST_COLOR[a.status]}">${esc(a.clienteNome)}</span>
+          <span class="badge" style="background:${ST_BG[a.status]};color:${ST_COLOR[a.status]}">${ST_LBL[a.status]}</span></div>
+          <div style="font-size:12px;color:var(--text-2)">${esc(a.servico)}${servicoDuracao(a.servico)?' · '+servicoDuracao(a.servico)+'min':''}${a.barbeiro?' · '+esc(a.barbeiro):''}${a.clienteTelefone?' · '+esc(a.clienteTelefone):''}</div>
+          ${a.obs?`<div style="font-size:11px;color:var(--text-3);margin-top:4px">${esc(a.obs)}</div>`:''}</div>
+        <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:17px;font-weight:700;color:var(--gold)">${esc(a.hora)}</div><div style="font-size:10px;color:var(--text-3)">${fmtDate(a.data)}</div></div>
+      </div>
+      <div class="actions">
+        ${a.status!=='concluido'?`<button class="btn btn-green btn-sm" onclick="modalConcluir('${a.id}')">✓ Concluir</button>`:''}
+        ${a.status!=='cancelado'?`<button class="btn btn-amber btn-sm" onclick="setStatusAg('${a.id}','cancelado')">✕ Cancelar</button>`:''}
+        ${a.clienteTelefone?`<button class="btn btn-sm" onclick="enviarConfirmacao('${a.id}')">📲 Confirmação</button>`:''}
+        ${a.clienteTelefone?`<button class="btn btn-sm" onclick="modalMensagens('${a.id}')">📩 Mensagens</button>`:''}
+        <button class="btn btn-sm" onclick="modalAgenda('${a.id}')">Editar</button>
+        <button class="btn btn-red btn-sm" onclick="delAgenda('${a.id}')">Remover</button>
+      </div></div>`).join(''):`<div class="card empty">${ICON.calendar(36,'#252525')}<p>Nenhum agendamento para este dia</p><button class="btn btn-primary" onclick="modalAgenda()">Novo Agendamento</button></div>`}`;
+}
+function setStatusAg(id,st){
+  const a=state.agendamentos.find(x=>x.id===id);
+  if(a && st!=='concluido' && a.lancamentoId){
+    state.lancamentos=state.lancamentos.filter(l=>l.id!==a.lancamentoId); save('lancamentos');
+  }
+  state.agendamentos=state.agendamentos.map(x=>x.id===id?{...x,status:st,lancamentoId:(st==='concluido'?x.lancamentoId:null)}:x);
+  save('agendamentos'); render();
+}
+function delAgenda(id){
+  if(confirm('Remover este agendamento?')){
+    const a=state.agendamentos.find(x=>x.id===id);
+    if(a && a.lancamentoId){ state.lancamentos=state.lancamentos.filter(l=>l.id!==a.lancamentoId); save('lancamentos'); }
+    state.agendamentos=state.agendamentos.filter(x=>x.id!==id); save('agendamentos'); render();
+  }
+}
+function modalAgenda(id){
+  const dataDef = agFiltro||todayStr();
+  const a = id?state.agendamentos.find(x=>x.id===id):{clienteNome:'',clienteTelefone:'',servico:'',barbeiro:'',data:dataDef,hora:(dataDef===todayStr()?horaAgora():'09:00'),status:'agendado',obs:''};
+  openModal(`
+    <div class="modal-head"><h2>${id?'Editar':'Novo'} Agendamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    ${state.clientes.length?`<div class="toggle-grid" id="ag-modo-toggle" style="margin-bottom:14px">
+      <button class="toggle" data-m="cadastrado" onclick="setAgModo('cadastrado')">Cliente cadastrado</button>
+      <button class="toggle" data-m="novo" onclick="setAgModo('novo')">Digitar nome</button>
+    </div>`:''}
+    <div id="ag-modo-cad" style="display:none">
+      <div class="field"><label class="lbl">Buscar Cliente</label>
+        <select id="m-cliente-sel" class="inp" onchange="selecionarCliente()"><option value="">Buscar cliente cadastrado...</option>${state.clientes.filter(c=>!c.bloqueado).slice().sort((x,y)=>x.nome.localeCompare(y.nome)).map(c=>`<option value="${c.id}">${esc(c.nome)}${c.telefone?' · '+esc(c.telefone):''}</option>`).join('')}</select>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Dica: digite as primeiras letras do nome para localizar.</div>
+      </div>
+    </div>
+    <div id="ag-modo-novo">
+      <div class="field"><label class="lbl">Nome do Cliente</label><input id="m-nome" class="inp" value="${esc(a.clienteNome)}" placeholder="Nome completo"></div>
+      <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
+    </div>
+    <div class="row2"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" value="${a.data}" onchange="ajustarHoraMin()"></div>
+      <div class="field"><label class="lbl">Hora</label><input id="m-hora" type="time" class="inp" value="${a.hora}"></div></div>
+    <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Status</label><select id="m-status" class="inp">${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Observações</label><textarea id="m-obs" class="inp" placeholder="Opcional...">${esc(a.obs)}</textarea></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveAgenda('${id||''}')">Salvar</button></div>
+  `);
+  agModo=(!id && state.clientes.length)?'cadastrado':'novo';
+  setAgModo(agModo);
+  ajustarHoraMin();
+}
+function horaAgora(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function ajustarHoraMin(){
+  const dataEl=document.getElementById('m-data'), horaEl=document.getElementById('m-hora');
+  if(!dataEl||!horaEl) return;
+  if(dataEl.value===todayStr()) horaEl.min=horaAgora(); else horaEl.removeAttribute('min');
+}
+function setAgModo(m){
+  agModo=m;
+  const cad=document.getElementById('ag-modo-cad'), novo=document.getElementById('ag-modo-novo');
+  if(cad) cad.style.display=m==='cadastrado'?'block':'none';
+  if(novo) novo.style.display=m==='novo'?'block':'none';
+  document.querySelectorAll('#ag-modo-toggle .toggle').forEach(b=>b.classList.toggle('on-gold',b.dataset.m===m));
+}
+function selecionarCliente(){
+  const id=document.getElementById('m-cliente-sel').value;
+  const c=state.clientes.find(x=>x.id===id);
+  document.getElementById('m-nome').value=c?c.nome:'';
+  document.getElementById('m-tel').value=c?(c.telefone||''):'';
+}
+function saveAgenda(id){
+  const g=x=>document.getElementById(x).value;
+  const data={clienteNome:g('m-nome').trim(),clienteTelefone:g('m-tel').trim(),servico:g('m-serv'),barbeiro:g('m-barb'),data:g('m-data'),hora:g('m-hora'),status:g('m-status'),obs:g('m-obs').trim()};
+  if(!data.clienteNome||!data.servico||!data.data||!data.hora){ alert('Preencha nome, serviço, data e hora.'); return; }
+  if(!id && data.data===todayStr() && data.hora < horaAgora()){ alert('Esse horário já passou hoje. Escolha um horário a partir de agora.'); return; }
+  // cadastra automaticamente o cliente se ainda não existir
+  const telNorm=data.clienteTelefone.replace(/\D/g,'');
+  const jaExiste=state.clientes.some(c=> c.nome.trim().toLowerCase()===data.clienteNome.toLowerCase() || (telNorm && (c.telefone||'').replace(/\D/g,'')===telNorm));
+  if(!jaExiste){
+    state.clientes.push({id:uid(),nome:data.clienteNome,telefone:data.clienteTelefone,dataNascimento:'',observacoes:'',bloqueado:false,createdAt:Date.now()});
+    save('clientes');
+  }
+  if(id) state.agendamentos=state.agendamentos.map(a=>a.id===id?{...a,...data}:a);
+  else state.agendamentos.push({...data,id:uid(),createdAt:Date.now()});
+  save('agendamentos'); closeModal(); render();
+}
+
+/* ============ LEMBRETES (WhatsApp em 1 toque) ============ */
+function lembretesPendentes(){
+  const agora=new Date();
+  const ativos=(state.config.lembretes||[]).filter(l=>l.ativo);
+  const pend=[];
+  state.agendamentos.filter(a=>a.status==='agendado').forEach(a=>{
+    const dt=new Date(a.data+'T'+(a.hora||'00:00'));
+    if(isNaN(dt)||dt<agora) return;
+    ativos.forEach(l=>{
+      const inicio=new Date(dt.getTime()-l.horasAntes*3600000);
+      const key=a.id+'_'+l.id;
+      // só mostra se, quando o agendamento foi criado, ainda faltava esse tempo (ex: 24h)
+      if(agora>=inicio && (a.createdAt||0)<=inicio.getTime() && !state.lembretesEnviados.includes(key)) pend.push({ag:a,lembrete:l,key});
+    });
+  });
+  pend.sort((x,y)=>`${x.ag.data}${x.ag.hora}`>`${y.ag.data}${y.ag.hora}`?1:-1);
+  return pend;
+}
+function lembretesProximos(){
+  const agora=new Date();
+  const ativos=(state.config.lembretes||[]).filter(l=>l.ativo);
+  const prox=[];
+  state.agendamentos.filter(a=>a.status==='agendado').forEach(a=>{
+    const dt=new Date(a.data+'T'+(a.hora||'00:00'));
+    if(isNaN(dt)||dt<agora) return;
+    ativos.forEach(l=>{
+      const inicio=new Date(dt.getTime()-l.horasAntes*3600000);
+      const key=a.id+'_'+l.id;
+      // ainda NÃO chegou a hora, mas faz sentido (criado com antecedência) e não foi enviado
+      if(agora<inicio && (a.createdAt||0)<=inicio.getTime() && !state.lembretesEnviados.includes(key)) prox.push({ag:a,lembrete:l,key,inicio});
+    });
+  });
+  prox.sort((x,y)=>x.inicio-y.inicio);
+  return prox;
+}
+function viewLembretes(){
+  const pend=lembretesPendentes();
+  const prox=lembretesProximos();
+  const fmtQuando=(d)=>{ const hoje=toISO(d)===todISOsafe(); return (hoje?'hoje':parseLocalDate(toISO(d)).toLocaleDateString('pt-BR',{day:'numeric',month:'short'}))+' às '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+  return `
+    <div class="sec-head"><div><h1>Lembretes</h1><p>${pend.length} para enviar agora · ${prox.length} agendado(s)</p></div></div>
+    <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">📲 Toque em "Enviar no WhatsApp": a mensagem abre pronta, é só apertar enviar.</div>
+    <h3 style="font-size:13px;margin-bottom:10px;color:var(--gold)">Para enviar agora</h3>
+    ${pend.length?pend.map(p=>`<div class="card list-item" style="padding:15px">
+      <div style="font-weight:700;font-size:14px;color:var(--gold)">${esc(p.ag.clienteNome)}</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(p.ag.servico)}${p.ag.barbeiro?' · '+esc(p.ag.barbeiro):''}</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:3px">${fmtDate(p.ag.data)} às ${esc(p.ag.hora)} · lembrete ${p.lembrete.horasAntes}h antes</div>
+      <div style="font-size:12px;color:var(--text-2);font-style:italic;background:#0F0F0F;border-radius:7px;padding:9px 11px;margin-top:10px">"${esc(montarMensagem(p.lembrete.template,p.ag))}"</div>
+      <div class="actions">
+        ${p.ag.clienteTelefone?`<button class="btn btn-green btn-sm" onclick="enviarLembrete('${p.ag.id}','${p.lembrete.id}')">📲 Enviar no WhatsApp</button>`:'<span style="font-size:11px;color:var(--red);align-self:center">Cliente sem telefone</span>'}
+        <button class="btn btn-sm" onclick="marcarEnviado('${p.key}')">Marcar como enviado</button>
+      </div></div>`).join(''):`<div class="card" style="padding:18px;text-align:center;color:var(--text-3);font-size:13px">Nenhum lembrete para enviar agora</div>`}
+    <h3 style="font-size:13px;margin:22px 0 10px;color:var(--text-2)">Próximos lembretes</h3>
+    ${prox.length?prox.map(p=>`<div class="card list-item" style="padding:13px 15px;opacity:.9">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div><div style="font-weight:600;font-size:13px">${esc(p.ag.clienteNome)}</div>
+          <div style="font-size:11px;color:var(--text-2);margin-top:2px">${esc(p.ag.servico)} · agendado ${fmtDate(p.ag.data)} às ${esc(p.ag.hora)}</div></div>
+        <div style="text-align:right;flex-shrink:0;margin-left:8px"><div style="font-size:10px;color:var(--text-3)">lembrete ${p.lembrete.horasAntes}h antes</div><div style="font-size:11px;color:var(--gold);font-weight:600;margin-top:2px">aparece ${fmtQuando(p.inicio)}</div></div>
+      </div>
+      ${p.ag.clienteTelefone?`<div class="actions"><button class="btn btn-green btn-sm" onclick="enviarLembrete('${p.ag.id}','${p.lembrete.id}')">📲 Enviar agora</button></div>`:''}
+      </div>`).join(''):`<div class="card" style="padding:18px;text-align:center;color:var(--text-3);font-size:13px">Nenhum lembrete agendado — crie agendamentos futuros para vê-los aqui</div>`}`;
+}
+function todISOsafe(){ return todayStr(); }
+function enviarLembrete(agId,lbId){
+  const a=state.agendamentos.find(x=>x.id===agId), l=state.config.lembretes.find(x=>x.id===lbId);
+  if(!a||!l) return;
+  abrirWhatsApp(a.clienteTelefone, montarMensagem(l.template,a));
+  marcarEnviado(agId+'_'+lbId);
+}
+function marcarEnviado(key){
+  if(!state.lembretesEnviados.includes(key)) state.lembretesEnviados.push(key);
+  save('lembretesEnviados'); render();
+}
+function enviarConfirmacao(id){
+  const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
+  abrirWhatsApp(a.clienteTelefone, montarMensagem(state.config.confirmacao,a));
+}
+function opcoesMensagem(){
+  return [{nome:'Confirmação',tpl:state.config.confirmacao}, ...(state.config.lembretes||[]).map(l=>({nome:`Lembrete ${l.horasAntes}h antes`,tpl:l.template}))];
+}
+function modalMensagens(id){
+  const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
+  const ops=opcoesMensagem();
+  openModal(`
+    <div class="modal-head"><h2>Enviar Mensagem</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">${esc(a.clienteNome)}${a.clienteTelefone?' · '+esc(a.clienteTelefone):''}</div>
+    ${ops.length?ops.map((o,i)=>`<div style="padding:12px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:6px">${esc(o.nome)}</div>
+      <div style="font-size:12px;color:var(--text-2);font-style:italic;line-height:1.5">"${esc(montarMensagem(o.tpl,a))}"</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-green btn-sm" onclick="enviarMsgEscolhida('${id}',${i})">📲 Enviar</button></div>
+    </div>`).join(''):'<p style="color:var(--text-3);text-align:center;padding:12px 0">Nenhuma mensagem configurada</p>'}
+  `);
+}
+function enviarMsgEscolhida(id,i){
+  const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
+  const o=opcoesMensagem()[i]; if(!o) return;
+  abrirWhatsApp(a.clienteTelefone, montarMensagem(o.tpl,a));
+}
+
+/* ============ CONCLUIR ATENDIMENTO -> FINANCEIRO ============ */
+let concluirTmp={formaPagamento:'pix'};
+let concluirProdutos=[];
+function modalConcluir(id){
+  const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
+  concluirTmp={formaPagamento:'pix'};
+  concluirProdutos=[];
+  const preco=servicoPreco(a.servico);
+  openModal(`
+    <div class="modal-head"><h2>Concluir Atendimento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">${esc(a.clienteNome)} · ${esc(a.servico)}</div>
+    <div class="field"><label class="lbl">Valor do serviço (R$)</label><input id="cc-valor" type="number" step="0.01" min="0" class="inp" value="${preco}" oninput="updConcluir()"></div>
+    <div class="field"><label class="lbl">Produtos vendidos (opcional)</label>
+      <select id="cc-prod-sel" class="inp" onchange="addProdutoConcluir()"><option value="">Selecione um produto para adicionar...</option>${state.produtos.slice().sort((x,y)=>x.nome.localeCompare(y.nome)).map(p=>`<option value="${p.id}">${esc(p.nome)} · ${fmtMoney(p.preco)}</option>`).join('')}</select>
+      <div id="cc-prod-list" style="margin-top:8px"></div>
+    </div>
+    <div class="field"><label class="lbl">Desconto</label><div style="display:flex;gap:6px"><input id="cc-desc" type="number" step="0.01" min="0" class="inp" value="0" oninput="updConcluir()" style="flex:1"><select id="cc-tipo" class="inp" style="width:64px" onchange="updConcluir()"><option value="reais">R$</option><option value="pct">%</option></select></div></div>
+    <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="cc-pay">
+      ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setConcluirPay('${v}')">${l}</button>`).join('')}
+    </div></div>
+    <div id="cc-resumo" style="padding:10px 12px;background:var(--green-bg);border-radius:7px;font-size:13px;color:var(--green);margin-bottom:8px"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmarConcluir('${id}')">Confirmar e lançar</button></div>
+  `);
+  renderProdutosConcluir(); updConcluir();
+}
+function setConcluirPay(p){ concluirTmp.formaPagamento=p; document.querySelectorAll('#cc-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); updConcluir(); }
+function addProdutoConcluir(){
+  const sel=document.getElementById('cc-prod-sel'); const p=state.produtos.find(x=>x.id===sel.value);
+  if(!p) return;
+  concluirProdutos.push({id:p.id,nome:p.nome,preco:Number(p.preco)||0});
+  sel.value=''; renderProdutosConcluir(); updConcluir();
+}
+function removeProdutoConcluir(i){ concluirProdutos.splice(i,1); renderProdutosConcluir(); updConcluir(); }
+function renderProdutosConcluir(){
+  const box=document.getElementById('cc-prod-list'); if(!box) return;
+  box.innerHTML = concluirProdutos.map((p,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#0F0F0F;border:1px solid var(--border);border-radius:7px;margin-bottom:6px;font-size:12px">
+    <span>${esc(p.nome)}</span><span style="display:flex;align-items:center;gap:10px"><span style="color:var(--gold)">${fmtMoney(p.preco)}</span><button onclick="removeProdutoConcluir(${i})" style="background:none;border:none;color:var(--red);font-size:15px;cursor:pointer">×</button></span>
+  </div>`).join('');
+}
+function valorFinal(valId,descId,tipoId){
+  const v=parseFloat(document.getElementById(valId).value)||0;
+  const d=parseFloat(document.getElementById(descId).value)||0;
+  const tipo=document.getElementById(tipoId).value;
+  let f=tipo==='pct'?v*(1-d/100):v-d;
+  return f<0?0:f;
+}
+function somaProdutosConcluir(){ return concluirProdutos.reduce((s,p)=>s+(Number(p.preco)||0),0); }
+function concluirFinal(){
+  const serv=parseFloat(document.getElementById('cc-valor').value)||0;
+  const base=serv+somaProdutosConcluir();
+  const d=parseFloat(document.getElementById('cc-desc').value)||0;
+  const tipo=document.getElementById('cc-tipo').value;
+  let f=tipo==='pct'?base*(1-d/100):base-d;
+  return f<0?0:f;
+}
+function updConcluir(){
+  const serv=parseFloat(document.getElementById('cc-valor').value)||0;
+  const prod=somaProdutosConcluir();
+  const f=concluirFinal();
+  const liq=calcLiquido(f,concluirTmp.formaPagamento);
+  const box=document.getElementById('cc-resumo');
+  if(box) box.innerHTML = (prod>0?`Serviço ${fmtMoney(serv)} + Produtos ${fmtMoney(prod)}<br>`:'')+`Valor final: <strong>${fmtMoney(f)}</strong>`+(Math.abs(liq-f)>0.001?` · Líquido após taxa: <strong>${fmtMoney(liq)}</strong>`:'');
+}
+function confirmarConcluir(id){
+  const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
+  const f=concluirFinal();
+  const liq=calcLiquido(f,concluirTmp.formaPagamento);
+  if(a.lancamentoId) state.lancamentos=state.lancamentos.filter(l=>l.id!==a.lancamentoId); // evita duplicar
+  const lancId=uid();
+  const nomesProd=concluirProdutos.map(p=>p.nome);
+  const desc=`${a.servico} — ${a.clienteNome}`+(nomesProd.length?` (+ ${nomesProd.join(', ')})`:'');
+  state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,data:a.data,createdAt:Date.now(),origem:'agendamento'});
+  if(concluirProdutos.length){
+    concluirProdutos.forEach(cp=>{ const prod=state.produtos.find(x=>x.id===cp.id); if(prod && prod.estoque!==''&&prod.estoque!=null) prod.estoque=Math.max(0,parseInt(prod.estoque)-1); });
+    save('produtos');
+  }
+  state.agendamentos=state.agendamentos.map(x=>x.id===id?{...x,status:'concluido',lancamentoId:lancId}:x);
+  save('lancamentos'); save('agendamentos'); closeModal(); render();
+}
+
+/* ============ VENDER PRODUTO -> FINANCEIRO ============ */
+let venderTmp={formaPagamento:'pix'};
+function modalVender(id){
+  const p=state.produtos.find(x=>x.id===id); if(!p) return;
+  venderTmp={formaPagamento:'pix'};
+  openModal(`
+    <div class="modal-head"><h2>Vender Produto</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">${esc(p.nome)}${(p.estoque!==''&&p.estoque!=null)?` · estoque: ${p.estoque}`:''}</div>
+    <div class="row2">
+      <div class="field"><label class="lbl">Preço (R$)</label><input id="vd-valor" type="number" step="0.01" min="0" class="inp" value="${p.preco||0}" oninput="updVender()"></div>
+      <div class="field"><label class="lbl">Desconto</label><div style="display:flex;gap:6px"><input id="vd-desc" type="number" step="0.01" min="0" class="inp" value="0" oninput="updVender()" style="flex:1"><select id="vd-tipo" class="inp" style="width:64px" onchange="updVender()"><option value="reais">R$</option><option value="pct">%</option></select></div></div>
+    </div>
+    <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="vd-pay">
+      ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setVenderPay('${v}')">${l}</button>`).join('')}
+    </div></div>
+    <div id="vd-resumo" style="padding:10px 12px;background:var(--green-bg);border-radius:7px;font-size:13px;color:var(--green);margin-bottom:8px"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmarVender('${id}')">Confirmar venda</button></div>
+  `);
+  updVender();
+}
+function setVenderPay(p){ venderTmp.formaPagamento=p; document.querySelectorAll('#vd-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); updVender(); }
+function updVender(){
+  const f=valorFinal('vd-valor','vd-desc','vd-tipo');
+  const liq=calcLiquido(f,venderTmp.formaPagamento);
+  const box=document.getElementById('vd-resumo');
+  if(box) box.innerHTML=`Valor final: <strong>${fmtMoney(f)}</strong>`+(Math.abs(liq-f)>0.001?` · Líquido após taxa: <strong>${fmtMoney(liq)}</strong>`:'');
+}
+function confirmarVender(id){
+  const p=state.produtos.find(x=>x.id===id); if(!p) return;
+  const f=valorFinal('vd-valor','vd-desc','vd-tipo');
+  const liq=calcLiquido(f,venderTmp.formaPagamento);
+  state.lancamentos.push({id:uid(),tipo:'entrada',descricao:`Produto: ${p.nome}`,categoria:'Produto',valor:f,valorLiquido:liq,formaPagamento:venderTmp.formaPagamento,data:todayStr(),createdAt:Date.now(),origem:'produto'});
+  if(p.estoque!==''&&p.estoque!=null){ const novo=Math.max(0,parseInt(p.estoque)-1); state.produtos=state.produtos.map(x=>x.id===id?{...x,estoque:novo}:x); }
+  save('lancamentos'); save('produtos'); closeModal(); render();
+}
+
+/* ============ CLIENTES ============ */
+let cliBusca='';
+function histCliente(nome){ return state.agendamentos.filter(a=>a.clienteNome===nome).sort((a,b)=>`${b.data}${b.hora}`>`${a.data}${a.hora}`?1:-1); }
+function viewClientes(){
+  const lista=state.clientes.filter(c=>c.nome.toLowerCase().includes(cliBusca.toLowerCase())||(c.telefone||'').includes(cliBusca));
+  return `
+    <div class="sec-head"><div><h1>Clientes</h1><p>${state.clientes.length} cliente(s) cadastrado(s)</p></div>
+      <button class="btn btn-primary" onclick="modalCliente()">+ Novo Cliente</button></div>
+    <div style="position:relative;margin-bottom:18px"><div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none">${ICON.search(15,'#6B7280')}</div>
+      <input class="inp" style="padding-left:34px" value="${esc(cliBusca)}" placeholder="Buscar por nome ou telefone..." oninput="cliBusca=this.value;render();document.querySelector('#view .inp').focus()"></div>
+    ${lista.length?lista.map(c=>{const h=histCliente(c.nome);return `<div class="card list-item" style="padding:15px;opacity:${c.bloqueado?.65:1}">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold-m),#2A2A2A);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:var(--gold);flex-shrink:0">${esc(c.nome.charAt(0).toUpperCase())}</div>
+        <div style="flex:1"><div style="display:flex;align-items:center;gap:7px"><span style="font-weight:700;font-size:14px">${esc(c.nome)}</span>${c.bloqueado?'<span class="badge" style="background:var(--red-bg);color:var(--red)">BLOQUEADO</span>':''}</div>
+          <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(c.telefone||'Sem telefone')} · ${h.length} atendimento(s)</div></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm" onclick="modalHist('${c.id}')">Histórico</button>
+        <button class="btn btn-sm" onclick="modalCliente('${c.id}')">Editar</button>
+        <button class="btn btn-sm ${c.bloqueado?'btn-green':'btn-amber'}" onclick="togBloq('${c.id}')">${c.bloqueado?'Desbloquear':'Bloquear'}</button>
+        <button class="btn btn-red btn-sm" onclick="delCliente('${c.id}')">Remover</button>
+      </div></div>`}).join(''):`<div class="card empty">${ICON.users(36,'#252525')}<p>Nenhum cliente encontrado</p><button class="btn btn-primary" onclick="modalCliente()">Cadastrar Cliente</button></div>`}`;
+}
+function togBloq(id){ state.clientes=state.clientes.map(c=>c.id===id?{...c,bloqueado:!c.bloqueado}:c); save('clientes'); render(); }
+function delCliente(id){ if(confirm('Remover cliente?')){ state.clientes=state.clientes.filter(c=>c.id!==id); save('clientes'); render(); } }
+function modalCliente(id){
+  const c=id?state.clientes.find(x=>x.id===id):{nome:'',telefone:'',dataNascimento:'',observacoes:'',bloqueado:false};
+  openModal(`
+    <div class="modal-head"><h2>${id?'Editar':'Novo'} Cliente</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div class="field"><label class="lbl">Nome Completo</label><input id="c-nome" class="inp" value="${esc(c.nome)}" placeholder="Nome do cliente"></div>
+    <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="c-tel" class="inp" value="${esc(c.telefone)}" placeholder="(11) 99999-9999"></div>
+    <div class="field"><label class="lbl">Data de Nascimento</label><input id="c-nasc" type="date" class="inp" value="${c.dataNascimento||''}"></div>
+    <div class="field"><label class="lbl">Observações</label><textarea id="c-obs" class="inp" placeholder="Preferências, alergias...">${esc(c.observacoes)}</textarea></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveCliente('${id||''}')">Salvar</button></div>
+  `);
+}
+function saveCliente(id){
+  const g=x=>document.getElementById(x).value;
+  const data={nome:g('c-nome').trim(),telefone:g('c-tel').trim(),dataNascimento:g('c-nasc'),observacoes:g('c-obs').trim()};
+  if(!data.nome){ alert('Informe o nome.'); return; }
+  if(id) state.clientes=state.clientes.map(c=>c.id===id?{...c,...data}:c);
+  else state.clientes.push({...data,bloqueado:false,id:uid(),createdAt:Date.now()});
+  save('clientes'); closeModal(); render();
+}
+function modalHist(id){
+  const c=state.clientes.find(x=>x.id===id); const h=histCliente(c.nome);
+  openModal(`
+    <div class="modal-head"><h2>Histórico — ${esc(c.nome)}</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    ${h.length?h.map(a=>`<div style="padding:10px 13px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between"><span style="font-weight:600;font-size:13px">${esc(a.servico)}</span><span style="font-size:12px;color:var(--gold)">${fmtDate(a.data)} ${esc(a.hora)}</span></div>
+      <div style="font-size:11px;color:var(--text-2);margin-top:3px">${a.barbeiro?esc(a.barbeiro)+' · ':''}<span style="color:${ST_COLOR[a.status]}">${ST_LBL[a.status]}</span></div>
+    </div>`).join(''):'<p style="color:var(--text-3);text-align:center;padding:16px 0">Sem atendimentos registrados</p>'}
+  `);
+}
+
+/* ============ FINANCEIRO ============ */
+let finFiltro=todayStr();
+const FP_COLOR={pix:'#10B981',dinheiro:'#3B82F6',debito:'#8B5CF6',credito:'#F59E0B'};
+const CATS=['Serviço','Produto','Aluguel','Material','Salário','Outros'];
+function viewFinanceiro(){
+  const lista=state.lancamentos.filter(l=>!finFiltro||l.data===finFiltro).sort((a,b)=>b.createdAt-a.createdAt);
+  const ent=lista.filter(l=>l.tipo==='entrada').reduce((s,l)=>s+(l.valorLiquido??l.valor),0);
+  const sai=lista.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  const saldo=ent-sai;
+  const cards=[{l:'Entradas',v:fmtMoney(ent),c:'var(--green)',bg:'var(--green-bg)'},{l:'Saídas',v:fmtMoney(sai),c:'var(--red)',bg:'var(--red-bg)'},{l:'Saldo',v:fmtMoney(saldo),c:saldo>=0?'var(--green)':'var(--red)',bg:saldo>=0?'var(--green-bg)':'var(--red-bg)'}];
+  return `
+    <div class="sec-head"><div><h1>Financeiro</h1><p>Controle de entradas e saídas</p></div>
+      <button class="btn btn-primary" onclick="modalLanc()">+ Novo Lançamento</button></div>
+    <div style="margin-bottom:16px"><input type="date" class="inp" style="max-width:200px" value="${finFiltro}" onchange="finFiltro=this.value;render()"></div>
+    <div class="row3" style="margin-bottom:18px">${cards.map(c=>`<div style="background:${c.bg};border:1px solid ${c.c}30;border-radius:10px;padding:12px;text-align:center">
+      <div style="font-size:14px;font-weight:700;color:${c.c}">${c.v}</div><div style="font-size:10px;color:${c.c};opacity:.7;margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.l}</div></div>`).join('')}</div>
+    ${lista.length?lista.map(l=>{const taxa=(l.tipo==='entrada'&&(l.formaPagamento==='debito'||l.formaPagamento==='credito'))?l.valor-(l.valorLiquido??l.valor):0;
+      return `<div class="card list-item" style="padding:14px;border-left:3px solid ${l.tipo==='entrada'?'var(--green)':'var(--red)'}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div style="flex:1"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">${ICON[l.tipo==='entrada'?'up':'down'](13,l.tipo==='entrada'?'#22C55E':'#EF4444')}<span style="font-weight:600;font-size:13px">${esc(l.descricao)}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${l.categoria?`<span style="font-size:11px;color:var(--text-2)">${esc(l.categoria)}</span>`:''}
+            <span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${FP_COLOR[l.formaPagamento]}18;color:${FP_COLOR[l.formaPagamento]}">${fmtPayment(l.formaPagamento)}</span></div>
+          ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}</div>
+        <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:15px;font-weight:700;color:${l.tipo==='entrada'?'var(--green)':'var(--red)'}">${l.tipo==='entrada'?'+':'−'}${fmtMoney(l.tipo==='entrada'?(l.valorLiquido??l.valor):l.valor)}</div><div style="font-size:10px;color:var(--text-3);margin-top:2px">${fmtDate(l.data)}</div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button></div>
+    </div>`}).join(''):`<div class="card empty">${ICON.dollar(36,'#252525')}<p>Nenhum lançamento neste período</p><button class="btn btn-primary" onclick="modalLanc()">Novo Lançamento</button></div>`}`;
+}
+function delLanc(id){ if(confirm('Remover lançamento?')){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); render(); } }
+let lancTmp={tipo:'entrada',formaPagamento:'pix'};
+function modalLanc(){
+  lancTmp={tipo:'entrada',formaPagamento:'pix'};
+  openModal(`
+    <div class="modal-head"><h2>Novo Lançamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div class="toggle-grid" id="l-toggle">
+      <button class="toggle on-green" data-t="entrada" onclick="setLancTipo('entrada')">${ICON.up(15,'#22C55E')} Entrada</button>
+      <button class="toggle" data-t="saida" onclick="setLancTipo('saida')">${ICON.down(15,'#6B7280')} Saída</button>
+    </div>
+    <div class="field"><label class="lbl">Descrição</label><input id="l-desc" class="inp" placeholder="Ex: Corte + Barba — Cliente"></div>
+    <div class="row2"><div class="field"><label class="lbl">Valor (R$)</label><input id="l-valor" type="number" step="0.01" min="0" class="inp" placeholder="0,00" oninput="updLiquido()"></div>
+      <div class="field"><label class="lbl">Data</label><input id="l-data" type="date" class="inp" value="${todayStr()}"></div></div>
+    <div class="field"><label class="lbl">Categoria</label><select id="l-cat" class="inp"><option value="">Selecionar...</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="l-pay">
+      ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setLancPay('${v}')">${l}</button>`).join('')}
+    </div><div id="l-liquido" style="margin-top:8px"></div></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveLanc()">Adicionar</button></div>
+  `);
+}
+function setLancTipo(t){
+  lancTmp.tipo=t;
+  document.querySelectorAll('#l-toggle .toggle').forEach(b=>{
+    const on=b.dataset.t===t; b.className='toggle'+(on?(t==='entrada'?' on-green':' on-red'):'');
+    b.querySelector('svg')?.setAttribute('stroke', on?(t==='entrada'?'#22C55E':'#EF4444'):'#6B7280');
+  });
+  updLiquido();
+}
+function setLancPay(p){
+  lancTmp.formaPagamento=p;
+  document.querySelectorAll('#l-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  updLiquido();
+}
+function updLiquido(){
+  const v=parseFloat(document.getElementById('l-valor').value)||0;
+  const box=document.getElementById('l-liquido');
+  if(lancTmp.tipo==='entrada'&&v&&(lancTmp.formaPagamento==='debito'||lancTmp.formaPagamento==='credito')){
+    box.innerHTML=`<div style="padding:8px 12px;background:var(--amber-bg);border-radius:6px;font-size:12px;color:var(--amber)">💡 Valor líquido: <strong>${fmtMoney(calcLiquido(v,lancTmp.formaPagamento))}</strong></div>`;
+  } else box.innerHTML='';
+}
+function saveLanc(){
+  const v=parseFloat(document.getElementById('l-valor').value);
+  const desc=document.getElementById('l-desc').value.trim();
+  if(!desc||!v){ alert('Informe descrição e valor.'); return; }
+  const liquido=lancTmp.tipo==='entrada'?calcLiquido(v,lancTmp.formaPagamento):v;
+  state.lancamentos.push({id:uid(),tipo:lancTmp.tipo,descricao:desc,categoria:document.getElementById('l-cat').value,valor:v,valorLiquido:liquido,formaPagamento:lancTmp.formaPagamento,data:document.getElementById('l-data').value,createdAt:Date.now()});
+  save('lancamentos'); closeModal(); render();
+}
+
+/* ============ PRODUTOS ============ */
+let prodBusca='', prodFoto='';
+const CATS_PROD=['Cabelo','Barba','Cuidados','Finalizadores','Outros'];
+function viewProdutos(){
+  const lista=state.produtos.filter(p=>p.nome.toLowerCase().includes(prodBusca.toLowerCase()));
+  const baixo=state.produtos.filter(p=>p.estoque!==''&&p.estoque!=null&&parseInt(p.estoque)<=2);
+  return `
+    <div class="sec-head"><div><h1>Produtos</h1><p>${state.produtos.length} produto(s)${baixo.length?' · '+baixo.length+' com estoque baixo':''}</p></div>
+      <button class="btn btn-primary" onclick="modalProduto()">+ Produto</button></div>
+    ${baixo.length?`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--amber)">${ICON.warning(15,'#F59E0B')}<span><strong>Estoque baixo:</strong> ${baixo.map(p=>esc(p.nome)+' ('+p.estoque+')').join(', ')}</span></div>`:''}
+    <div style="position:relative;margin-bottom:18px"><div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none">${ICON.search(15,'#6B7280')}</div>
+      <input class="inp" style="padding-left:34px" value="${esc(prodBusca)}" placeholder="Buscar produto..." oninput="prodBusca=this.value;render();document.querySelector('#view .inp').focus()"></div>
+    ${lista.length?lista.map(p=>{const low=p.estoque!==''&&p.estoque!=null&&parseInt(p.estoque)<=2;return `<div class="card list-item" style="padding:0;overflow:hidden">
+      ${p.fotoUrl?`<div style="height:130px;overflow:hidden;background:#0A0A0A"><img src="${p.fotoUrl}" alt="${esc(p.nome)}" style="width:100%;height:100%;object-fit:cover"></div>`:''}
+      <div style="padding:15px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div style="font-weight:700;font-size:15px;margin-bottom:4px">${esc(p.nome)}</div><span class="badge" style="background:rgba(201,168,76,.1);color:var(--gold)">${esc(p.categoria)}</span></div>
+          ${low?`<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--amber);background:var(--amber-bg);padding:4px 8px;border-radius:7px">${ICON.warning(12,'#F59E0B')} Est: ${p.estoque}</div>`:(p.estoque!==''&&p.estoque!=null?`<div style="font-size:11px;color:var(--text-2)">Est: ${p.estoque}</div>`:'')}
+        </div>
+        ${p.descricao?`<div style="font-size:12px;color:var(--text-2);margin-top:7px">${esc(p.descricao)}</div>`:''}
+        <div style="margin-top:10px"><div style="font-size:18px;font-weight:700;color:var(--gold)">${fmtMoney(p.preco)}</div>${p.validade?`<div style="font-size:11px;color:var(--text-3);margin-top:1px">Val: ${fmtDate(p.validade)}</div>`:''}</div>
+        <div class="actions"><button class="btn btn-green btn-sm" style="flex:1" onclick="modalVender('${p.id}')">🛒 Vender</button><button class="btn btn-sm" style="flex:1" onclick="modalProduto('${p.id}')">✎ Editar</button><button class="btn btn-red btn-sm" style="flex:1" onclick="delProduto('${p.id}')">✕ Remover</button></div>
+      </div></div>`}).join(''):`<div class="card empty">${ICON.package(36,'#252525')}<p>Nenhum produto cadastrado</p><button class="btn btn-primary" onclick="modalProduto()">Cadastrar Produto</button></div>`}`;
+}
+function delProduto(id){ if(confirm('Remover produto?')){ state.produtos=state.produtos.filter(p=>p.id!==id); save('produtos'); render(); } }
+function modalProduto(id){
+  const p=id?state.produtos.find(x=>x.id===id):{nome:'',categoria:'Outros',descricao:'',preco:'',validade:'',estoque:'',fotoUrl:''};
+  prodFoto=p.fotoUrl||'';
+  openModal(`
+    <div class="modal-head"><h2>${id?'Editar':'Novo'} Produto</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div class="field"><label class="lbl">Foto do Produto</label>
+      <label style="display:block;cursor:pointer" id="p-foto-label">${prodFoto?`<div style="position:relative"><img src="${prodFoto}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"><div style="position:absolute;bottom:8px;right:8px;padding:3px 8px;background:rgba(0,0,0,.7);border-radius:5px;font-size:11px">Alterar</div></div>`:`<div style="border:2px dashed var(--border);border-radius:8px;padding:22px;text-align:center;color:var(--text-3)">${ICON.package(22,'#252525')}<div style="margin-top:7px;font-size:12px">Clique para adicionar foto</div></div>`}
+        <input type="file" accept="image/*" style="display:none" onchange="lerFoto(event)"></label></div>
+    <div class="field"><label class="lbl">Nome</label><input id="p-nome" class="inp" value="${esc(p.nome)}" placeholder="Nome do produto"></div>
+    <div class="field"><label class="lbl">Categoria</label><select id="p-cat" class="inp">${CATS_PROD.map(c=>`<option ${p.categoria===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Descrição</label><input id="p-desc" class="inp" value="${esc(p.descricao)}" placeholder="Opcional"></div>
+    <div class="row2"><div class="field"><label class="lbl">Preço (R$)</label><input id="p-preco" type="number" step="0.01" min="0" class="inp" value="${p.preco}" placeholder="0,00"></div>
+      <div class="field"><label class="lbl">Estoque</label><input id="p-est" type="number" min="0" class="inp" value="${p.estoque}" placeholder="0"></div></div>
+    <div class="field"><label class="lbl">Data de Validade</label><input id="p-val" type="date" class="inp" value="${p.validade||''}"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveProduto('${id||''}')">Salvar</button></div>
+  `);
+}
+function lerFoto(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{ prodFoto=ev.target.result;
+    document.getElementById('p-foto-label').innerHTML=`<div style="position:relative"><img src="${prodFoto}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;border:1px solid var(--border)"><div style="position:absolute;bottom:8px;right:8px;padding:3px 8px;background:rgba(0,0,0,.7);border-radius:5px;font-size:11px">Alterar</div></div><input type="file" accept="image/*" style="display:none" onchange="lerFoto(event)">`;
+  };
+  r.readAsDataURL(f);
+}
+function saveProduto(id){
+  const g=x=>document.getElementById(x).value;
+  const nome=g('p-nome').trim(); if(!nome){ alert('Informe o nome.'); return; }
+  const data={nome,categoria:g('p-cat'),descricao:g('p-desc').trim(),preco:parseFloat(g('p-preco'))||0,validade:g('p-val'),estoque:g('p-est')!==''?parseInt(g('p-est')):'',fotoUrl:prodFoto};
+  if(id) state.produtos=state.produtos.map(p=>p.id===id?{...p,...data}:p);
+  else state.produtos.push({...data,id:uid(),createdAt:Date.now()});
+  save('produtos'); closeModal(); render();
+}
+
+/* ============ CONFIGURAÇÕES ============ */
+let cfgTab='barbearia';
+const VARS=['{nome}','{hora}','{data}','{servico}','{barbeiro}'];
+function viewConfig(){
+  const tabs=[['barbearia','Barbearia'],['taxas','Taxas'],['mensagens','Mensagens'],['servicos','Serviços']];
+  let body='';
+  const cfg=state.config;
+  if(cfgTab==='barbearia'){
+    body=`<div class="card">
+      <h3 style="font-size:14px;margin-bottom:14px">Dados</h3>
+      <div class="field"><label class="lbl">Nome da Barbearia</label><input class="inp" value="${esc(cfg.barbearia.nome)}" onchange="cfg_set('barbearia.nome',this.value)"></div>
+      <div class="field"><label class="lbl">Endereço</label><input class="inp" value="${esc(cfg.barbearia.endereco)}" placeholder="Endereço completo" onchange="cfg_set('barbearia.endereco',this.value)"></div>
+      <h3 style="font-size:14px;margin:18px 0 12px">Barbeiros</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">${cfg.barbeiros.map((b,i)=>`<span class="chip">${esc(b)}<button onclick="cfg_delArr('barbeiros',${i})">×</button></span>`).join('')}</div>
+      <div style="display:flex;gap:7px"><input class="inp" style="flex:1" placeholder="Nome do barbeiro" onkeydown="if(event.key==='Enter')cfg_addArr('barbeiros',this)"><button class="btn btn-primary" onclick="cfg_addArr('barbeiros',this.previousElementSibling)">Adicionar</button></div>
+      <h3 style="font-size:14px;margin:18px 0 12px">Locais de Atendimento</h3>
+      ${cfg.locais.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#0F0F0F;border:1px solid var(--border);border-radius:8px;margin-bottom:7px"><span style="font-size:13px">${esc(l.nome)}</span>${i>0?`<button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delLocal(${i})">×</button>`:''}</div>`).join('')}
+      <div style="display:flex;gap:7px;margin-top:4px"><input class="inp" style="flex:1" placeholder="Nome do local" onkeydown="if(event.key==='Enter')cfg_addLocal(this)"><button class="btn btn-primary" onclick="cfg_addLocal(this.previousElementSibling)">Adicionar</button></div>
+    </div>`;
+  } else if(cfgTab==='taxas'){
+    body=`<div class="card">
+      <h3 style="font-size:14px;margin-bottom:12px">Taxas da Maquininha</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:18px">O valor líquido é calculado automaticamente ao registrar uma entrada por cartão.</p>
+      <div class="field"><label class="lbl">Taxa Débito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaDebito}" onchange="cfg_setNum('taxaDebito',this.value)"></div>
+      <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaDebito/100))}</strong></div>
+      <div class="field"><label class="lbl">Taxa Crédito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaCredito}" onchange="cfg_setNum('taxaCredito',this.value)"></div>
+      <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaCredito/100))}</strong></div>
+    </div>`;
+  } else if(cfgTab==='mensagens'){
+    body=`<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="font-size:14px">Lembretes WhatsApp</h3><button class="btn btn-primary" onclick="modalLembrete()">+ Novo</button></div>
+      <div style="padding:8px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:14px;font-size:12px;color:var(--text-2)"><strong style="color:var(--gold)">Variáveis:</strong> ${VARS.join(' ')}</div>
+      <div class="field"><label class="lbl">Mensagem de Confirmação (botão "Confirmação" na Agenda)</label><textarea class="inp" style="min-height:70px" onchange="cfg_set('confirmacao',this.value)">${esc(cfg.confirmacao||'')}</textarea></div>
+      <h3 style="font-size:13px;margin:16px 0 10px;color:var(--text-2)">Lembretes automáticos</h3>
+      ${cfg.lembretes.length?cfg.lembretes.map(l=>`<div style="padding:12px;background:#0F0F0F;border-radius:8px;border:1px solid ${l.ativo?'#C9A84C35':'var(--border)'};margin-bottom:10px;opacity:${l.ativo?1:.5}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${ICON.clock(13,'#C9A84C')}<span style="font-size:12px;font-weight:700;color:var(--gold)">${l.horasAntes}h antes do horário</span></div>
+          <div style="display:flex;gap:6px"><button class="btn btn-sm ${l.ativo?'btn-green':''}" style="padding:3px 8px;font-size:10px" onclick="cfg_togLembrete('${l.id}')">${l.ativo?'Ativo':'Inativo'}</button><button class="btn btn-red" style="padding:3px 8px;font-size:10px" onclick="cfg_delLembrete('${l.id}')">✕</button></div></div>
+        <div style="font-size:12px;color:var(--text-2);line-height:1.5;font-style:italic">"${esc(l.template)}"</div></div>`).join(''):'<p style="color:var(--text-3);text-align:center;padding:12px 0">Nenhum lembrete configurado</p>'}
+    </div>`;
+  } else {
+    body=`<div class="card">
+      <h3 style="font-size:14px;margin-bottom:4px">Serviços</h3>
+      <p style="font-size:11px;color:var(--text-3);margin-bottom:12px">Preço e tempo de execução de cada serviço.</p>
+      ${cfg.servicos.length?cfg.servicos.map((s,i)=>`<div style="padding:10px 12px;background:#0F0F0F;border:1px solid var(--border);border-radius:8px;margin-bottom:7px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="flex:1;font-size:13px;display:flex;align-items:center;gap:6px">${ICON.scissors(12,'#C9A84C')}${esc(s.nome)}</span>
+        <button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delArr('servicos',${i})">×</button></div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1"><div style="font-size:10px;color:var(--text-3);margin-bottom:3px">PREÇO (R$)</div><input type="number" step="0.01" min="0" class="inp" value="${s.preco||0}" onchange="cfg_setServ(${i},'preco',this.value)"></div>
+          <div style="flex:1"><div style="font-size:10px;color:var(--text-3);margin-bottom:3px">TEMPO (MIN)</div><input type="number" step="5" min="0" class="inp" value="${s.duracao||30}" onchange="cfg_setServ(${i},'duracao',this.value)"></div>
+        </div>
+      </div>`).join(''):'<p style="color:var(--text-3);text-align:center;padding:12px 0">Nenhum serviço cadastrado</p>'}
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px">
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:6px">Adicionar serviço</div>
+        <input id="serv-nome" class="inp" style="margin-bottom:7px" placeholder="Nome do serviço">
+        <div style="display:flex;gap:7px">
+          <input id="serv-preco" type="number" step="0.01" min="0" class="inp" style="flex:1" placeholder="Preço R$">
+          <input id="serv-dur" type="number" step="5" min="0" class="inp" style="flex:1" placeholder="Tempo min">
+          <button class="btn btn-primary" onclick="cfg_addServico()">Add</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="sec-head"><div><h1>Configurações</h1><p>Personalize o sistema da sua barbearia</p></div></div>
+    <div class="tabs">${tabs.map(([id,l])=>`<button class="tab ${cfgTab===id?'active':''}" onclick="cfgTab='${id}';render()">${l}</button>`).join('')}</div>${body}`;
+}
+function cfg_set(path,v){ const k=path.split('.'); let o=state.config; for(let i=0;i<k.length-1;i++)o=o[k[i]]; o[k[k.length-1]]=v; saveConfig(); }
+function cfg_setNum(k,v){ state.config[k]=parseFloat(v)||0; saveConfig(); render(); }
+function cfg_addArr(key,inp){ const v=inp.value.trim(); if(v){ state.config[key].push(v); saveConfig(); render(); } }
+function cfg_delArr(key,i){ state.config[key].splice(i,1); saveConfig(); render(); }
+function cfg_setServ(i,campo,v){ state.config.servicos[i][campo]=parseFloat(v)||0; saveConfig(); }
+function cfg_addServico(){
+  const nome=document.getElementById('serv-nome').value.trim();
+  const preco=parseFloat(document.getElementById('serv-preco').value)||0;
+  const duracao=parseFloat(document.getElementById('serv-dur').value)||30;
+  if(!nome) return;
+  state.config.servicos.push({nome,preco,duracao}); saveConfig(); render();
+}
+function cfg_addLocal(inp){ const v=inp.value.trim(); if(v){ state.config.locais.push({id:uid(),nome:v}); saveConfig(); render(); } }
+function cfg_delLocal(i){ state.config.locais.splice(i,1); saveConfig(); render(); }
+function cfg_togLembrete(id){ state.config.lembretes=state.config.lembretes.map(l=>l.id===id?{...l,ativo:!l.ativo}:l); saveConfig(); render(); }
+function cfg_delLembrete(id){ state.config.lembretes=state.config.lembretes.filter(l=>l.id!==id); saveConfig(); render(); }
+function modalLembrete(){
+  openModal(`
+    <div class="modal-head"><h2>Novo Lembrete</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div class="field"><label class="lbl">Enviar quantas horas antes?</label><input id="lb-horas" type="number" min="1" class="inp" value="24"></div>
+    <div class="field"><label class="lbl">Mensagem</label><div style="font-size:11px;color:var(--text-3);margin-bottom:6px">Variáveis: ${VARS.join(', ')}</div>
+      <textarea id="lb-tpl" class="inp" style="min-height:90px" placeholder="Olá {nome}! Lembrando do seu horário...">Olá {nome}! 🗓️ Lembrando do seu horário às {hora} para {servico}. Te esperamos! ✂️</textarea></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveLembrete()">Adicionar</button></div>
+  `);
+}
+function saveLembrete(){
+  const h=parseInt(document.getElementById('lb-horas').value)||1;
+  const t=document.getElementById('lb-tpl').value.trim();
+  if(!t){ alert('Escreva a mensagem.'); return; }
+  state.config.lembretes.push({id:uid(),horasAntes:h,template:t,ativo:true});
+  saveConfig(); closeModal(); render();
+}
+
+/* ============ MODAL GENÉRICO ============ */
+function openModal(html){ document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+/* ============ ÍCONES DO TEMPLATE (placeholders no HTML) ============ */
+document.querySelector('#sidebar .side-head .side-logo').innerHTML = ICON.scissors(16,'#0A0A0A');
+document.querySelector('#sidebar .side-head button').innerHTML = ICON.x(20);
+document.querySelector('.side-logo.only-desktop').innerHTML = ICON.scissors(17,'#0A0A0A');
+document.querySelector('#topbar .burger').innerHTML = ICON.menu(20,'#C9A84C');
+document.querySelector('#topbar-brand').insertAdjacentHTML('afterbegin', ICON.scissors(16,'#C9A84C'));
+document.querySelector('#btn-sino').insertAdjacentHTML('afterbegin', ICON.bell(20,'#C9A84C'));
+document.querySelector('#btn-novo').innerHTML = ICON.plus(20,'#C9A84C');
+
+/* ============ INIT ============ */
+async function boot(){
+  migrarDados();
+  if(db){
+    setSync('Carregando da nuvem...');
+    try{
+      const snap = await db.collection('dados').get();
+      if(snap.empty){
+        // Primeira vez: envia os dados locais existentes para a nuvem
+        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados'].forEach(k=>save(k));
+        saveConfig();
+      } else {
+        snap.forEach(doc=>{
+          const d=doc.data();
+          if(doc.id==='config'){ if(d && d.value) state.config=d.value; }
+          else if(d && d.items){ state[doc.id]=d.items; }
+        });
+        migrarDados();
+        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados'].forEach(k=>LS.set('bc:'+k,state[k]));
+        LS.set('bc:config',state.config);
+      }
+      setSync('☁️ Sincronizado');
+    }catch(e){
+      console.warn('Erro ao carregar da nuvem:',e);
+      setSync('⚠️ Sem conexão com a nuvem — usando dados locais');
+    }
+  }
+  render();
+}
+boot();
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); } });
+</script>
+</body>
+</html>

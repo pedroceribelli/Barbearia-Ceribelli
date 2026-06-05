@@ -53,7 +53,18 @@
 
   /* Main */
   main{flex:1;min-width:0;width:100%;overflow-y:auto}
-  #topbar{display:none}
+  #topbar{
+    display:flex;align-items:center;gap:10px;padding:10px 20px;
+    position:sticky;top:0;z-index:900;
+    background:rgba(13,13,13,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--border)
+  }
+  #topbar .burger{display:none}
+  #topbar .brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+  #topbar .brand span{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #topbar .top-action{background:none;border:1px solid var(--border);border-radius:9px;padding:8px;color:var(--gold);display:flex;align-items:center;position:relative;flex-shrink:0;cursor:pointer}
+  #topbar .top-action:hover{background:rgba(201,168,76,.08)}
+  #lembrete-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;line-height:16px}
   #view{padding:22px}
 
   /* ===== COMPONENTES ===== */
@@ -124,18 +135,9 @@
     .nav-btn{flex-direction:row;width:100%;justify-content:flex-start;gap:12px;padding:12px 14px;color:var(--text-2)}
     .nav-btn span.lbl-short{display:none}
     .nav-btn .lbl-full{display:inline;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0}
-    #topbar{
-      display:flex;align-items:center;gap:12px;padding:12px 16px;
-      position:sticky;top:0;z-index:900;
-      background:rgba(13,13,13,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-      border-bottom:1px solid var(--border)
-    }
+    #topbar{padding:10px 14px;gap:10px}
     #topbar .burger{background:none;border:1px solid var(--border);border-radius:9px;padding:8px;color:var(--gold);display:flex;align-items:center}
-    #topbar .brand{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
-    #topbar .brand span{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    #topbar .top-action{background:none;border:1px solid var(--border);border-radius:9px;padding:8px;color:var(--gold);display:flex;align-items:center;position:relative;flex-shrink:0}
-    #lembrete-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:none;align-items:center;justify-content:center;line-height:16px}
-    #view{padding:16px}
+    #topbar .brand span{font-size:15px}
     .row2{grid-template-columns:1fr}
     .sec-head{flex-direction:column;align-items:stretch}
     .sec-head .btn-primary{align-self:flex-start}
@@ -170,7 +172,7 @@
 </div>
 <div id="modal-root"></div>
 
-<!-- Firebase (nuvem) -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
@@ -182,32 +184,60 @@ const LS = {
   set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ this.mem[k]=v; } }
 };
 
-/* ============ FIREBASE (NUVEM) ============ */
-/* Chaves do projeto Firebase — Barbearia Ceribelli */
+/* ============ FIREBASE (NUVEM PRINCIPAL) ============ */
 const firebaseConfig = {
-  apiKey: "AIzaSyB50HFYQmrCwxbb6ixmoJBpYDKDO4WUdBE",
-  authDomain: "barbearia-ceribelli.firebaseapp.com",
-  projectId: "barbearia-ceribelli",
-  storageBucket: "barbearia-ceribelli.firebasestorage.app",
-  messagingSenderId: "342965780941",
-  appId: "1:342965780941:web:2ff83d970fe1331a87c484"
+  apiKey:"AIzaSyB50HFYQmrCwxbb6ixmoJBpYDKDO4WUdBE",
+  authDomain:"barbearia-ceribelli.firebaseapp.com",
+  projectId:"barbearia-ceribelli",
+  storageBucket:"barbearia-ceribelli.firebasestorage.app",
+  messagingSenderId:"342965780941",
+  appId:"1:342965780941:web:2ff83d970fe1331a87c484"
 };
 let db = null;
-try {
-  if (window.firebase && firebaseConfig.apiKey && firebaseConfig.apiKey !== "COLE_AQUI") {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-  }
-} catch(e){ console.warn('Firebase não iniciado:', e); }
+try{
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+}catch(e){ console.warn('Firebase init:', e); }
 
-function setSync(msg){
-  let el = document.getElementById('sync-status');
-  if(!msg){ if(el) el.remove(); return; }
-  if(!el){ el=document.createElement('div'); el.id='sync-status';
-    el.style.cssText='position:fixed;bottom:12px;right:12px;background:#141414;border:1px solid #252525;color:#9CA3AF;font-size:11px;padding:6px 12px;border-radius:20px;z-index:2000';
+/* ============ SUPABASE (NUVEM ALTERNATIVA — opcional) ============ */
+// Após criar sua conta no supabase.com, cole aqui o URL e a chave anon do seu projeto:
+const SB_URL = ''; // ex: https://xyzabc.supabase.co
+const SB_KEY = ''; // ex: eyJhbGciOiJIUzI1NiIsInR5...
+
+const cloudAtivo = () => !!db || (SB_URL && SB_URL.length > 10);
+const sbHeaders = () => ({'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'});
+
+function setCloudStatus(msg, cor){
+  let el=document.getElementById('cloud-status');
+  if(!el){ el=document.createElement('div'); el.id='cloud-status';
+    el.style.cssText='position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#141414;border:1px solid #252525;font-size:11px;padding:5px 14px;border-radius:20px;z-index:2000;white-space:nowrap;pointer-events:none';
     document.body.appendChild(el); }
-  el.textContent=msg;
-  if(msg.indexOf('Sincronizado')>-1) setTimeout(()=>{ const e=document.getElementById('sync-status'); if(e) e.remove(); }, 2500);
+  el.textContent=msg; el.style.color=cor||'#9CA3AF';
+  clearTimeout(el._t); el._t=setTimeout(()=>{ const e=document.getElementById('cloud-status'); if(e)e.remove(); },3000);
+}
+
+async function cloudSave(key, valor){
+  if(!cloudAtivo()) return;
+  try{
+    await fetch(SB_URL+'/rest/v1/dados',{method:'POST',headers:{...sbHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:key,valor})});
+  }catch(e){ console.warn('Supabase save:',e); }
+}
+async function cloudLoad(){
+  if(!cloudAtivo()) return false;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/dados?select=*',{headers:sbHeaders()});
+    if(!r.ok) return false;
+    const rows=await r.json();
+    if(!rows.length) return false;
+    rows.forEach(row=>{
+      if(row.id==='config'){ if(row.valor) state.config=row.valor; }
+      else if(row.valor) state[row.id]=row.valor;
+    });
+    migrarDados();
+    ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>LS.set('bc:'+k,state[k]));
+    LS.set('bc:config',state.config);
+    return true;
+  }catch(e){ console.warn('Supabase load:',e); return false; }
 }
 
 /* ============ HELPERS ============ */
@@ -289,8 +319,10 @@ function migrarDados(){
   const c = state.config;
   c.servicos = Array.isArray(c.servicos) ? c.servicos.map(s=> typeof s==='string' ? {nome:s, preco:0, duracao:30} : {duracao:30, ...s}) : [];
   if(!c.confirmacao) c.confirmacao = 'Olá {nome}! ✅ Seu horário na Barbearia Ceribelli está confirmado para {data} às {hora} ({servico}). Qualquer coisa, é só chamar!';
+  if(!c.msgAlteracao) c.msgAlteracao = 'Olá {nome}! ⚠️ Seu horário foi alterado. O novo horário é {data} às {hora} para {servico}. Qualquer dúvida, é só chamar! ✂️';
   if(!Array.isArray(c.lembretes)) c.lembretes = [];
   if(!Array.isArray(state.lembretesEnviados)) state.lembretesEnviados = [];
+  if(!Array.isArray(state.notifAlteracao)) state.notifAlteracao = [];
 }
 
 /* ============ ÍCONES ============ */
@@ -325,6 +357,7 @@ let state = {
   lancamentos: LS.get('bc:lancamentos') || [],
   produtos: LS.get('bc:produtos') || [],
   lembretesEnviados: LS.get('bc:lembretesEnviados') || [],
+  notifAlteracao: LS.get('bc:notifAlteracao') || [],
   config: LS.get('bc:config') || {
     taxaDebito:1.37, taxaCredito:3.15,
     barbearia:{nome:'Barbearia Ceribelli',endereco:''},
@@ -332,6 +365,8 @@ let state = {
       {id:'l1',horasAntes:24,template:'Olá {nome}! 🗓️ Lembrando do seu horário amanhã às {hora} para {servico} na Barbearia Ceribelli. Te esperamos! ✂️',ativo:true},
       {id:'l2',horasAntes:1,template:'Olá {nome}! ⏰ Seu horário é em 1 hora ({hora}) para {servico}. Já estamos te esperando! ✂️',ativo:true},
     ],
+    msgAlteracao:'Olá {nome}! ⚠️ Seu horário foi alterado. O novo horário é {data} às {hora} para {servico}. Qualquer dúvida, é só chamar! ✂️',
+    confirmacao:'Olá {nome}! ✅ Seu horário na Barbearia Ceribelli está confirmado para {data} às {hora} ({servico}). Qualquer coisa, é só chamar!',
     locais:[{id:'loc1',nome:'Unidade Principal'}],
     barbeiros:['Pedro'],
     servicos:['Corte','Barba','Corte + Barba','Hidratação','Corte + Barba + Hidratação'],
@@ -339,11 +374,13 @@ let state = {
 };
 function save(key){
   LS.set('bc:'+key, state[key]);
-  if(db){ db.collection('dados').doc(key).set({items: state[key]}).catch(e=>console.warn('cloud save',e)); }
+  if(db){ db.collection('dados').doc(key).set({items:state[key]}).catch(e=>console.warn('FB save',e)); }
+  else { cloudSave(key, state[key]); }
 }
 function saveConfig(){
   LS.set('bc:config', state.config);
-  if(db){ db.collection('dados').doc('config').set({value: state.config}).catch(e=>console.warn('cloud config',e)); }
+  if(db){ db.collection('dados').doc('config').set({value:state.config}).catch(e=>console.warn('FB config',e)); }
+  else { cloudSave('config', state.config); }
 }
 
 /* ============ DRAWER MOBILE ============ */
@@ -386,7 +423,7 @@ function render(){
 }
 function atualizarBadgeLembretes(){
   const b=document.getElementById('lembrete-badge'); if(!b) return;
-  const n=lembretesPendentes().length;
+  const n=lembretesPendentes().length + (state.notifAlteracao||[]).filter(x=>!x.enviado).length;
   if(n>0){ b.textContent=n>9?'9+':n; b.style.display='flex'; } else { b.style.display='none'; }
 }
 
@@ -531,8 +568,17 @@ function saveAgenda(id){
     state.clientes.push({id:uid(),nome:data.clienteNome,telefone:data.clienteTelefone,dataNascimento:'',observacoes:'',bloqueado:false,createdAt:Date.now()});
     save('clientes');
   }
-  if(id) state.agendamentos=state.agendamentos.map(a=>a.id===id?{...a,...data}:a);
-  else state.agendamentos.push({...data,id:uid(),createdAt:Date.now()});
+  // detecta alteração de horário (notificação para o cliente)
+  if(id){
+    const ag=state.agendamentos.find(a=>a.id===id);
+    if(ag && (ag.data!==data.data || ag.hora!==data.hora)){
+      state.notifAlteracao.push({id:uid(),agId:id,clienteNome:data.clienteNome,clienteTelefone:data.clienteTelefone,servico:data.servico,dataAnterior:ag.data,horaAnterior:ag.hora,novaData:data.data,novaHora:data.hora,createdAt:Date.now(),enviado:false});
+      save('notifAlteracao');
+    }
+    state.agendamentos=state.agendamentos.map(a=>a.id===id?{...a,...data}:a);
+  } else {
+    state.agendamentos.push({...data,id:uid(),createdAt:Date.now()});
+  }
   save('agendamentos'); closeModal(); render();
 }
 
@@ -571,13 +617,41 @@ function lembretesProximos(){
   prox.sort((x,y)=>x.inicio-y.inicio);
   return prox;
 }
+function montarMsgAlteracao(n){
+  return (state.config.msgAlteracao||'')
+    .replace(/\{nome\}/g, n.clienteNome||'')
+    .replace(/\{data\}/g, fmtDate(n.novaData)||'')
+    .replace(/\{hora\}/g, n.novaHora||'')
+    .replace(/\{servico\}/g, n.servico||'')
+    .replace(/\{dataAnterior\}/g, fmtDate(n.dataAnterior)||'')
+    .replace(/\{horaAnterior\}/g, n.horaAnterior||'');
+}
+function enviarNotifAlteracao(id){
+  const n=state.notifAlteracao.find(x=>x.id===id); if(!n) return;
+  abrirWhatsApp(n.clienteTelefone, montarMsgAlteracao(n));
+  state.notifAlteracao=state.notifAlteracao.map(x=>x.id===id?{...x,enviado:true}:x);
+  save('notifAlteracao'); render();
+}
+function descartarNotifAlteracao(id){ state.notifAlteracao=state.notifAlteracao.filter(x=>x.id!==id); save('notifAlteracao'); render(); }
 function viewLembretes(){
   const pend=lembretesPendentes();
   const prox=lembretesProximos();
+  const notifs=state.notifAlteracao.filter(n=>!n.enviado);
   const fmtQuando=(d)=>{ const hoje=toISO(d)===todISOsafe(); return (hoje?'hoje':parseLocalDate(toISO(d)).toLocaleDateString('pt-BR',{day:'numeric',month:'short'}))+' às '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+  const totalBadge=pend.length+notifs.length;
   return `
-    <div class="sec-head"><div><h1>Lembretes</h1><p>${pend.length} para enviar agora · ${prox.length} agendado(s)</p></div></div>
+    <div class="sec-head"><div><h1>Lembretes</h1><p>${pend.length} para enviar agora · ${prox.length} agendado(s)${notifs.length?' · '+notifs.length+' alteração(ões)':''}</p></div></div>
     <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">📲 Toque em "Enviar no WhatsApp": a mensagem abre pronta, é só apertar enviar.</div>
+    ${notifs.length?`<h3 style="font-size:13px;margin-bottom:10px;color:var(--amber)">⚠️ Alterações de Horário</h3>
+    ${notifs.map(n=>`<div class="card list-item" style="padding:15px;border-color:var(--amber-bg)">
+      <div style="font-weight:700;font-size:14px;color:var(--amber)">${esc(n.clienteNome)}</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(n.servico)}</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:3px">De ${fmtDate(n.dataAnterior)} ${esc(n.horaAnterior)} → para ${fmtDate(n.novaData)} ${esc(n.novaHora)}</div>
+      <div style="font-size:12px;color:var(--text-2);font-style:italic;background:#0F0F0F;border-radius:7px;padding:9px 11px;margin-top:10px">"${esc(montarMsgAlteracao(n))}"</div>
+      <div class="actions">
+        ${n.clienteTelefone?`<button class="btn btn-amber btn-sm" onclick="enviarNotifAlteracao('${n.id}')">📲 Enviar no WhatsApp</button>`:'<span style="font-size:11px;color:var(--red);align-self:center">Sem telefone</span>'}
+        <button class="btn btn-sm" onclick="descartarNotifAlteracao('${n.id}')">Descartar</button>
+      </div></div>`).join('')}`:''}
     <h3 style="font-size:13px;margin-bottom:10px;color:var(--gold)">Para enviar agora</h3>
     ${pend.length?pend.map(p=>`<div class="card list-item" style="padding:15px">
       <div style="font-weight:700;font-size:14px;color:var(--gold)">${esc(p.ag.clienteNome)}</div>
@@ -946,7 +1020,7 @@ function saveProduto(id){
 let cfgTab='barbearia';
 const VARS=['{nome}','{hora}','{data}','{servico}','{barbeiro}'];
 function viewConfig(){
-  const tabs=[['barbearia','Barbearia'],['taxas','Taxas'],['mensagens','Mensagens'],['servicos','Serviços']];
+  const tabs=[['barbearia','Barbearia'],['taxas','Taxas'],['mensagens','Mensagens'],['servicos','Serviços'],['nuvem','☁️ Nuvem']];
   let body='';
   const cfg=state.config;
   if(cfgTab==='barbearia'){
@@ -974,12 +1048,27 @@ function viewConfig(){
     body=`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="font-size:14px">Lembretes WhatsApp</h3><button class="btn btn-primary" onclick="modalLembrete()">+ Novo</button></div>
       <div style="padding:8px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:14px;font-size:12px;color:var(--text-2)"><strong style="color:var(--gold)">Variáveis:</strong> ${VARS.join(' ')}</div>
-      <div class="field"><label class="lbl">Mensagem de Confirmação (botão "Confirmação" na Agenda)</label><textarea class="inp" style="min-height:70px" onchange="cfg_set('confirmacao',this.value)">${esc(cfg.confirmacao||'')}</textarea></div>
+      <div class="field"><label class="lbl">Mensagem de Confirmação</label><textarea class="inp" style="min-height:60px" onchange="cfg_set('confirmacao',this.value)">${esc(cfg.confirmacao||'')}</textarea></div>
+      <div class="field" style="margin-top:12px"><label class="lbl">Mensagem de Alteração de Horário</label><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Enviada quando você editar um agendamento. Extra: <code>{dataAnterior}</code> <code>{horaAnterior}</code></div><textarea class="inp" style="min-height:60px" onchange="cfg_set('msgAlteracao',this.value)">${esc(cfg.msgAlteracao||'')}</textarea></div>
       <h3 style="font-size:13px;margin:16px 0 10px;color:var(--text-2)">Lembretes automáticos</h3>
-      ${cfg.lembretes.length?cfg.lembretes.map(l=>`<div style="padding:12px;background:#0F0F0F;border-radius:8px;border:1px solid ${l.ativo?'#C9A84C35':'var(--border)'};margin-bottom:10px;opacity:${l.ativo?1:.5}">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${ICON.clock(13,'#C9A84C')}<span style="font-size:12px;font-weight:700;color:var(--gold)">${l.horasAntes}h antes do horário</span></div>
-          <div style="display:flex;gap:6px"><button class="btn btn-sm ${l.ativo?'btn-green':''}" style="padding:3px 8px;font-size:10px" onclick="cfg_togLembrete('${l.id}')">${l.ativo?'Ativo':'Inativo'}</button><button class="btn btn-red" style="padding:3px 8px;font-size:10px" onclick="cfg_delLembrete('${l.id}')">✕</button></div></div>
+      ${cfg.lembretes.length?cfg.lembretes.map(l=>`<div style="padding:12px;background:#0F0F0F;border-radius:8px;border:1px solid ${l.ativo?'#C9A84C35':'var(--border)'};margin-bottom:10px;opacity:${l.ativo?1:.55}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:6px">${ICON.clock(13,'#C9A84C')}<span style="font-size:12px;font-weight:700;color:var(--gold)">${l.horasAntes}h antes do horário</span></div>
+          <div style="display:flex;gap:5px">
+            <button class="btn btn-sm" style="padding:3px 8px;font-size:10px" onclick="modalLembrete('${l.id}')">✏️ Editar</button>
+            <button class="btn btn-sm ${l.ativo?'btn-green':''}" style="padding:3px 8px;font-size:10px" onclick="cfg_togLembrete('${l.id}')">${l.ativo?'Ativo':'Inativo'}</button>
+            <button class="btn btn-red" style="padding:3px 8px;font-size:10px" onclick="cfg_delLembrete('${l.id}')">✕</button>
+          </div>
+        </div>
         <div style="font-size:12px;color:var(--text-2);line-height:1.5;font-style:italic">"${esc(l.template)}"</div></div>`).join(''):'<p style="color:var(--text-3);text-align:center;padding:12px 0">Nenhum lembrete configurado</p>'}
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:10px">💾 Backup dos Dados</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:12px">Exporte um arquivo com todos os seus dados. Em caso de problema, importe o arquivo para restaurar tudo.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="exportarBackup()">⬇️ Exportar backup</button>
+        <label class="btn" style="cursor:pointer">📂 Importar backup<input type="file" accept=".json" style="display:none" onchange="importarBackup(event)"></label>
+      </div>
     </div>`;
   } else {
     body=`<div class="card">
@@ -1005,7 +1094,41 @@ function viewConfig(){
     </div>`;
   }
   return `<div class="sec-head"><div><h1>Configurações</h1><p>Personalize o sistema da sua barbearia</p></div></div>
-    <div class="tabs">${tabs.map(([id,l])=>`<button class="tab ${cfgTab===id?'active':''}" onclick="cfgTab='${id}';render()">${l}</button>`).join('')}</div>${body}`;
+    <div class="tabs">${tabs.map(([id,l])=>`<button class="tab ${cfgTab===id?'active':''}" onclick="cfgTab='${id}';render()">${l}</button>`).join('')}</div>
+    ${cfgTab==='nuvem'?`<div class="card">
+      <h3 style="font-size:14px;margin-bottom:6px">☁️ Supabase (recomendado)</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Gratuito para sempre, sem regras que expiram. Seus dados ficam na nuvem e são recuperáveis em qualquer dispositivo.</p>
+      <div style="background:#0F0F0F;border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);margin-bottom:14px;line-height:1.8">
+        <strong style="color:var(--gold);display:block;margin-bottom:6px">Como configurar (5 minutos):</strong>
+        1️⃣ Acesse <a href="https://supabase.com" target="_blank" style="color:var(--gold)">supabase.com</a> → crie conta gratuita<br>
+        2️⃣ Crie um novo projeto → aguarde inicializar<br>
+        3️⃣ No menu lateral → <strong>SQL Editor</strong> → cole e execute:<br>
+        <code style="display:block;background:#1A1A1A;padding:8px;border-radius:6px;margin:6px 0;font-size:11px;color:#A3E635">CREATE TABLE dados (id TEXT PRIMARY KEY, valor JSONB);<br>ALTER TABLE dados ENABLE ROW LEVEL SECURITY;<br>CREATE POLICY "public" ON dados FOR ALL USING (true) WITH CHECK (true);</code>
+        4️⃣ Vá em <strong>Settings → API</strong><br>
+        5️⃣ Copie o <strong>Project URL</strong> e a chave <strong>anon public</strong><br>
+        6️⃣ Cole nos campos abaixo e faça o deploy no GitHub
+      </div>
+      <div class="field"><label class="lbl">Status atual</label>
+        <div style="padding:8px 12px;border-radius:7px;font-size:12px;background:${db?'var(--green-bg)':(SB_URL&&SB_URL.length>10?'var(--green-bg)':'#1A1A1A')};color:${db?'var(--green)':(SB_URL&&SB_URL.length>10?'var(--green)':'var(--text-3)')}">
+          ${db?'✅ Firebase conectado e ativo':(SB_URL&&SB_URL.length>10?'✅ Supabase ativo':'⚠️ Sem nuvem configurada — dados apenas no dispositivo')}
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-3);padding:8px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:14px">Para alterar o URL e a chave, edite diretamente o arquivo <code>index.html</code> no GitHub nas linhas <code>const SB_URL</code> e <code>const SB_KEY</code>.</div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:6px">🔥 Recuperar dados do Firebase</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:12px">Se você tinha dados no Firebase antigo, clique para recuperar. Isso vai substituir os dados atuais pelos dados do Firebase.</p>
+      <div style="font-size:11px;color:var(--amber);padding:8px 12px;background:var(--amber-bg);border-radius:7px;margin-bottom:12px">⚠️ Se aparecer erro de permissão, acesse o Firebase Console → Firestore → Regras e mude para: <code>allow read, write: if true;</code></div>
+      <button class="btn btn-amber" onclick="recuperarDoFirebase()">🔥 Recuperar do Firebase</button>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:10px">💾 Backup Manual</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:12px">Exporte seus dados como arquivo. Use antes de qualquer deploy.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="exportarBackup()">⬇️ Exportar backup</button>
+        <label class="btn" style="cursor:pointer">📂 Importar backup<input type="file" accept=".json" style="display:none" onchange="importarBackup(event)"></label>
+      </div>
+    </div>`:body}`;
 }
 function cfg_set(path,v){ const k=path.split('.'); let o=state.config; for(let i=0;i<k.length-1;i++)o=o[k[i]]; o[k[k.length-1]]=v; saveConfig(); }
 function cfg_setNum(k,v){ state.config[k]=parseFloat(v)||0; saveConfig(); render(); }
@@ -1023,62 +1146,113 @@ function cfg_addLocal(inp){ const v=inp.value.trim(); if(v){ state.config.locais
 function cfg_delLocal(i){ state.config.locais.splice(i,1); saveConfig(); render(); }
 function cfg_togLembrete(id){ state.config.lembretes=state.config.lembretes.map(l=>l.id===id?{...l,ativo:!l.ativo}:l); saveConfig(); render(); }
 function cfg_delLembrete(id){ state.config.lembretes=state.config.lembretes.filter(l=>l.id!==id); saveConfig(); render(); }
-function modalLembrete(){
+function modalLembrete(id){
+  const l=id?state.config.lembretes.find(x=>x.id===id):null;
   openModal(`
-    <div class="modal-head"><h2>Novo Lembrete</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <div class="field"><label class="lbl">Enviar quantas horas antes?</label><input id="lb-horas" type="number" min="1" class="inp" value="24"></div>
+    <div class="modal-head"><h2>${l?'Editar':'Novo'} Lembrete</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div class="field"><label class="lbl">Enviar quantas horas antes?</label><input id="lb-horas" type="number" min="1" class="inp" value="${l?l.horasAntes:24}"></div>
     <div class="field"><label class="lbl">Mensagem</label><div style="font-size:11px;color:var(--text-3);margin-bottom:6px">Variáveis: ${VARS.join(', ')}</div>
-      <textarea id="lb-tpl" class="inp" style="min-height:90px" placeholder="Olá {nome}! Lembrando do seu horário...">Olá {nome}! 🗓️ Lembrando do seu horário às {hora} para {servico}. Te esperamos! ✂️</textarea></div>
-    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveLembrete()">Adicionar</button></div>
+      <textarea id="lb-tpl" class="inp" style="min-height:90px">${esc(l?l.template:'Olá {nome}! 🗓️ Lembrando do seu horário às {hora} para {servico}. Te esperamos! ✂️')}</textarea></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveLembrete('${id||''}')">Salvar</button></div>
   `);
 }
-function saveLembrete(){
+function saveLembrete(id){
   const h=parseInt(document.getElementById('lb-horas').value)||1;
   const t=document.getElementById('lb-tpl').value.trim();
   if(!t){ alert('Escreva a mensagem.'); return; }
-  state.config.lembretes.push({id:uid(),horasAntes:h,template:t,ativo:true});
+  if(id){ state.config.lembretes=state.config.lembretes.map(l=>l.id===id?{...l,horasAntes:h,template:t}:l); }
+  else { state.config.lembretes.push({id:uid(),horasAntes:h,template:t,ativo:true}); }
   saveConfig(); closeModal(); render();
+}
+/* ============ RECUPERAÇÃO FIREBASE ============ */
+function recuperarDoFirebase(){
+  if(!db){ alert('Firebase não está conectado. Verifique sua conexão.'); return; }
+  if(!confirm('Isso vai recarregar todos os dados da nuvem Firebase e substituir os dados atuais.\nContinuar?')) return;
+  setCloudStatus('🔄 Recarregando da nuvem...','#9CA3AF');
+  db.collection('dados').get().then(snap=>{
+    if(snap.empty){ alert('Nenhum dado encontrado no Firebase.\n\nSe as regras expiraram, acesse:\nFirebase Console → Firestore → Regras\ne publique:\nallow read, write: if true;'); setCloudStatus('',''); return; }
+    snap.forEach(doc=>{ const d=doc.data(); if(doc.id==='config'){ if(d&&d.value) state.config=d.value; } else if(d&&d.items) state[doc.id]=d.items; });
+    ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>save(k));
+    saveConfig(); migrarDados(); render();
+    setCloudStatus('✅ Dados recuperados!','#22C55E');
+    alert('✅ Dados recuperados com sucesso!\n\nAgora use "Exportar backup" para guardar uma cópia local.');
+  }).catch(e=>{ alert('❌ Erro: '+e.message); setCloudStatus('',''); });
+}
+
+/* ============ BACKUP ============ */
+function exportarBackup(){
+  const dados={clientes:state.clientes,agendamentos:state.agendamentos,lancamentos:state.lancamentos,produtos:state.produtos,lembretesEnviados:state.lembretesEnviados,notifAlteracao:state.notifAlteracao,config:state.config,exportadoEm:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(dados,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='backup-barbearia-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function importarBackup(e){
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      if(d.agendamentos) state.agendamentos=d.agendamentos;
+      if(d.clientes) state.clientes=d.clientes;
+      if(d.lancamentos) state.lancamentos=d.lancamentos;
+      if(d.produtos) state.produtos=d.produtos;
+      if(d.lembretesEnviados) state.lembretesEnviados=d.lembretesEnviados;
+      if(d.notifAlteracao) state.notifAlteracao=d.notifAlteracao;
+      if(d.config) state.config=d.config;
+      ['agendamentos','clientes','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>save(k));
+      saveConfig(); migrarDados(); render();
+      alert('✅ Backup restaurado com sucesso!');
+    }catch(err){ alert('❌ Arquivo inválido. Verifique se é um backup gerado por este sistema.'); }
+  };
+  r.readAsText(file);
 }
 
 /* ============ MODAL GENÉRICO ============ */
 function openModal(html){ document.getElementById('modal-root').innerHTML=`<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
 function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 
-/* ============ ÍCONES DO TEMPLATE (placeholders no HTML) ============ */
-document.querySelector('#sidebar .side-head .side-logo').innerHTML = ICON.scissors(16,'#0A0A0A');
-document.querySelector('#sidebar .side-head button').innerHTML = ICON.x(20);
-document.querySelector('.side-logo.only-desktop').innerHTML = ICON.scissors(17,'#0A0A0A');
-document.querySelector('#topbar .burger').innerHTML = ICON.menu(20,'#C9A84C');
-document.querySelector('#topbar-brand').insertAdjacentHTML('afterbegin', ICON.scissors(16,'#C9A84C'));
-document.querySelector('#btn-sino').insertAdjacentHTML('afterbegin', ICON.bell(20,'#C9A84C'));
-document.querySelector('#btn-novo').innerHTML = ICON.plus(20,'#C9A84C');
+/* ============ ÍCONES DO TEMPLATE ============ */
+(function injectIcons(){
+  const s=document.querySelector('#sidebar .side-head .side-logo'); if(s)s.innerHTML=ICON.scissors(16,'#0A0A0A');
+  const sx=document.querySelector('#sidebar .side-head button'); if(sx)sx.innerHTML=ICON.x(20);
+  const sd=document.querySelector('.side-logo.only-desktop'); if(sd)sd.innerHTML=ICON.scissors(17,'#0A0A0A');
+  const bur=document.querySelector('#topbar .burger'); if(bur)bur.innerHTML=ICON.menu(20,'#C9A84C');
+  const brand=document.querySelector('#topbar-brand'); if(brand&&!brand.querySelector('svg'))brand.insertAdjacentHTML('afterbegin',ICON.scissors(16,'#C9A84C'));
+  const sino=document.querySelector('#btn-sino'); if(sino&&!sino.querySelector('svg'))sino.insertAdjacentHTML('afterbegin',ICON.bell(20,'#C9A84C'));
+  const novo=document.querySelector('#btn-novo'); if(novo)novo.innerHTML=ICON.plus(20,'#C9A84C');
+})();
 
 /* ============ INIT ============ */
 async function boot(){
   migrarDados();
   if(db){
-    setSync('Carregando da nuvem...');
+    setCloudStatus('☁️ Carregando...','#9CA3AF');
     try{
       const snap = await db.collection('dados').get();
-      if(snap.empty){
-        // Primeira vez: envia os dados locais existentes para a nuvem
-        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados'].forEach(k=>save(k));
-        saveConfig();
-      } else {
+      if(!snap.empty){
         snap.forEach(doc=>{
           const d=doc.data();
-          if(doc.id==='config'){ if(d && d.value) state.config=d.value; }
-          else if(d && d.items){ state[doc.id]=d.items; }
+          if(doc.id==='config'){ if(d&&d.value) state.config=d.value; }
+          else if(d&&d.items) state[doc.id]=d.items;
         });
         migrarDados();
-        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados'].forEach(k=>LS.set('bc:'+k,state[k]));
+        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>LS.set('bc:'+k,state[k]));
         LS.set('bc:config',state.config);
+      } else {
+        // Primeira vez: envia dados locais para a nuvem
+        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>save(k));
+        saveConfig();
       }
-      setSync('☁️ Sincronizado');
+      setCloudStatus('☁️ Firebase sincronizado','#22C55E');
     }catch(e){
-      console.warn('Erro ao carregar da nuvem:',e);
-      setSync('⚠️ Sem conexão com a nuvem — usando dados locais');
+      console.warn('Firebase load:',e);
+      setCloudStatus('⚠️ Sem conexão — dados locais','#F59E0B');
     }
+  } else if(SB_URL && SB_URL.length>10){
+    setCloudStatus('☁️ Carregando Supabase...','#9CA3AF');
+    const ok = await cloudLoad();
+    setCloudStatus(ok?'☁️ Supabase sincronizado':'⚠️ Sem conexão — dados locais', ok?'#22C55E':'#F59E0B');
   }
   render();
 }

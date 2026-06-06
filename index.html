@@ -18,18 +18,20 @@
     --green:#22C55E; --green-bg:#052E16; --red:#EF4444; --red-bg:#2D0808;
     --amber:#F59E0B; --amber-bg:#2D1B00; --blue:#60A5FA; --blue-bg:#0D1B2E;
     --text:#F5F5F5; --text-2:#9CA3AF; --text-3:#6B7280;
-    --surface:#141414;
+    --surface:#141414; --inp-bg:#0F0F0F; --inner:#0F0F0F;
   }
   body.tema-claro{
-    --bg:#F4F4F0; --card:#FFFFFF; --modal:#FFFFFF; --border:#E2E2DC; --border2:#D5D5CE;
-    --text:#1A1A1A; --text-2:#5A5A5A; --text-3:#9A9A9A;
-    --surface:#FFFFFF;
+    --bg:#F2F2EE; --card:#FFFFFF; --modal:#FFFFFF; --border:#E0E0D8; --border2:#D0D0C8;
+    --text:#1A1A1A; --text-2:#5A5A5A; --text-3:#8A8A8A;
+    --surface:#FFFFFF; --inp-bg:#F8F8F4; --inner:#F0F0EC;
     --green-bg:#DCFCE7; --red-bg:#FEE2E2; --amber-bg:#FEF3C7; --blue-bg:#DBEAFE;
     --gold-m:#B8922A;
   }
-  body.tema-claro ::-webkit-scrollbar-thumb{background:#D0D0C8}
+  body.tema-claro ::-webkit-scrollbar-thumb{background:#C8C8C0}
   body.tema-claro #sidebar{background:#1A1A1A}
-  body.tema-claro .card{box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  body.tema-claro .card{box-shadow:0 1px 4px rgba(0,0,0,.07)}
+  body.tema-claro #topbar{background:rgba(240,240,236,.97)}
+  body.tema-claro .modal{box-shadow:0 8px 32px rgba(0,0,0,.15)}
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
@@ -97,8 +99,8 @@
   .btn-green{background:var(--green-bg);border-color:var(--green);color:var(--green)}
   .btn-red{background:var(--red-bg);border-color:var(--red);color:var(--red)}
   .btn-amber{background:var(--amber-bg);border-color:var(--amber);color:var(--amber)}
-  .inp{width:100%;padding:10px 14px;background:#0F0F0F;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none}
-  .inp:focus{border-color:var(--gold-m)}
+  .inp{width:100%;padding:10px 14px;background:var(--inp-bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;transition:border-color .15s}
+  .inp:focus{border-color:var(--gold);border-width:1.5px}
   .lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--text-3);text-transform:uppercase;margin-bottom:6px}
   .field{margin-bottom:14px}
   select.inp{appearance:none;cursor:pointer}
@@ -110,7 +112,7 @@
   .empty p{margin:12px 0 16px;font-size:14px}
   .list-item{margin-bottom:10px}
   .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-  .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:#0F0F0F;border:1px solid var(--border);border-radius:20px;font-size:12px}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--inner);border:1px solid var(--border);border-radius:20px;font-size:12px}
   .chip button{background:none;border:none;color:var(--red);font-size:14px;line-height:1;padding:0}
 
   /* Modal */
@@ -136,6 +138,7 @@
   .tab{flex:1;padding:7px 4px;border-radius:7px;border:none;background:transparent;color:var(--text-3);font-size:12px;font-weight:600}
   .tab.active{background:var(--card);color:var(--gold)}
 
+  @keyframes spin{to{transform:rotate(360deg)}}
   /* ===== PIN ===== */
   #pin-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
   .pin-dot{width:15px;height:15px;border-radius:50%;background:var(--border2);transition:background .15s,transform .15s}
@@ -165,6 +168,8 @@
     #topbar .burger{background:none;border:1px solid var(--border);border-radius:9px;padding:8px;color:var(--gold);display:flex;align-items:center}
     #topbar .brand span{font-size:15px}
     .row2{grid-template-columns:1fr}
+    .row3{grid-template-columns:1fr 1fr 1fr}
+    #view{padding:14px}
     .sec-head{flex-direction:column;align-items:stretch}
     .sec-head .btn-primary{align-self:flex-start}
   }
@@ -575,7 +580,11 @@ const NAV = [
   {id:'produtos',ic:'package',l:'Produtos'},
   {id:'configuracoes',ic:'settings',l:'Config.'},
 ];
-function setView(v){ state.view=v; closeDrawer(); render(); }
+function setView(v){
+  state.view=v; closeDrawer();
+  const m=document.querySelector('main'); if(m) m.scrollTop=0;
+  render();
+}
 function renderNav(){
   document.getElementById('nav-items').innerHTML = NAV.map(n=>`
     <button class="nav-btn ${state.view===n.id?'active':''}" onclick="setView('${n.id}')">
@@ -645,9 +654,10 @@ function viewDashboard(){
     {l:'Agend. Hoje',v:aHoje.length,ic:'calendar',c:'var(--gold)',bg:'rgba(201,168,76,.08)'},
     {l:'Clientes',v:state.clientes.length,ic:'users',c:'var(--blue)',bg:'var(--blue-bg)'},
   ];
+  const nomeBarbearia = state.config.barbearia?.nome || 'Barbearia Ceribelli';
   return `
     <div style="margin-bottom:18px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${ICON.scissors(18,'#C9A84C')}<h1 style="font-size:19px;font-weight:700">Barbearia Ceribelli</h1></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${ICON.scissors(18,'#C9A84C')}<h1 style="font-size:19px;font-weight:700">${esc(nomeBarbearia)}</h1></div>
       <p style="color:var(--text-2);font-size:12px">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
     </div>
     ${baixo.length?`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--amber)">${ICON.warning(15,'#F59E0B')}<span><strong>${baixo.length} produto(s) com estoque baixo:</strong> ${baixo.map(p=>esc(p.nome)).join(', ')}</span></div>`:''}
@@ -671,7 +681,7 @@ function viewDashboard(){
     </div>`:''}
     <div class="card" style="margin-bottom:16px">
       <h3 style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:14px">${ICON.calendar(15,'#C9A84C')} Próximos Agendamentos</h3>
-      ${prox.length?prox.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
+      ${prox.length?prox.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
         <div><div style="font-weight:600;font-size:13px;color:${ST_COLOR[a.status]}">${esc(a.clienteNome)}</div><div style="font-size:11px;color:var(--text-2);margin-top:1px">${esc(a.servico)}${a.barbeiro?' · '+esc(a.barbeiro):''}</div></div>
         <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">${esc(a.hora)}</div><div style="font-size:10px;color:var(--text-3)">${fmtDate(a.data)}</div></div>
       </div>`).join(''):'<p style="color:var(--text-3);font-size:13px;text-align:center;padding:12px 0">Nenhum agendamento próximo</p>'}
@@ -895,13 +905,13 @@ function viewLembretes(){
   return `
     <div class="sec-head"><div><h1>Lembretes</h1><p>${pend.length} para enviar agora · ${prox.length} agendado(s)${notifs.length?' · '+notifs.length+' alteração(ões)':''}</p></div></div>
     ${notifBanner}
-    <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">📲 Toque em "Enviar no WhatsApp": a mensagem abre pronta, é só apertar enviar.</div>
+    <div style="padding:9px 12px;background:var(--inner);border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">📲 Toque em "Enviar no WhatsApp": a mensagem abre pronta, é só apertar enviar.</div>
     ${notifs.length?`<h3 style="font-size:13px;margin-bottom:10px;color:var(--amber)">⚠️ Alterações de Horário</h3>
     ${notifs.map(n=>`<div class="card list-item" style="padding:15px;border-color:var(--amber-bg)">
       <div style="font-weight:700;font-size:14px;color:var(--amber)">${esc(n.clienteNome)}</div>
       <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(n.servico)}</div>
       <div style="font-size:11px;color:var(--text-3);margin-top:3px">De ${fmtDate(n.dataAnterior)} ${esc(n.horaAnterior)} → para ${fmtDate(n.novaData)} ${esc(n.novaHora)}</div>
-      <div style="font-size:12px;color:var(--text-2);font-style:italic;background:#0F0F0F;border-radius:7px;padding:9px 11px;margin-top:10px">"${esc(montarMsgAlteracao(n))}"</div>
+      <div style="font-size:12px;color:var(--text-2);font-style:italic;background:var(--inner);border-radius:7px;padding:9px 11px;margin-top:10px">"${esc(montarMsgAlteracao(n))}"</div>
       <div class="actions">
         ${n.clienteTelefone?`<button class="btn btn-amber btn-sm" onclick="enviarNotifAlteracao('${n.id}')">📲 Enviar no WhatsApp</button>`:'<span style="font-size:11px;color:var(--red);align-self:center">Sem telefone</span>'}
         <button class="btn btn-sm" onclick="descartarNotifAlteracao('${n.id}')">Descartar</button>
@@ -911,7 +921,7 @@ function viewLembretes(){
       <div style="font-weight:700;font-size:14px;color:var(--gold)">${esc(p.ag.clienteNome)}</div>
       <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(p.ag.servico)}${p.ag.barbeiro?' · '+esc(p.ag.barbeiro):''}</div>
       <div style="font-size:11px;color:var(--text-3);margin-top:3px">${fmtDate(p.ag.data)} às ${esc(p.ag.hora)} · lembrete ${p.lembrete.horasAntes}h antes</div>
-      <div style="font-size:12px;color:var(--text-2);font-style:italic;background:#0F0F0F;border-radius:7px;padding:9px 11px;margin-top:10px">"${esc(montarMensagem(p.lembrete.template,p.ag))}"</div>
+      <div style="font-size:12px;color:var(--text-2);font-style:italic;background:var(--inner);border-radius:7px;padding:9px 11px;margin-top:10px">"${esc(montarMensagem(p.lembrete.template,p.ag))}"</div>
       <div class="actions">
         ${p.ag.clienteTelefone?`<button class="btn btn-green btn-sm" onclick="enviarLembrete('${p.ag.id}','${p.lembrete.id}')">📲 Enviar no WhatsApp</button>`:'<span style="font-size:11px;color:var(--red);align-self:center">Cliente sem telefone</span>'}
         <button class="btn btn-sm" onclick="marcarEnviado('${p.key}')">Marcar como enviado</button>
@@ -950,7 +960,7 @@ function modalMensagens(id){
   openModal(`
     <div class="modal-head"><h2>Enviar Mensagem</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
     <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">${esc(a.clienteNome)}${a.clienteTelefone?' · '+esc(a.clienteTelefone):''}</div>
-    ${ops.length?ops.map((o,i)=>`<div style="padding:12px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);margin-bottom:10px">
+    ${ops.length?ops.map((o,i)=>`<div style="padding:12px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:10px">
       <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:6px">${esc(o.nome)}</div>
       <div style="font-size:12px;color:var(--text-2);font-style:italic;line-height:1.5">"${esc(montarMensagem(o.tpl,a))}"</div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn btn-green btn-sm" onclick="enviarMsgEscolhida('${id}',${i})">📲 Enviar</button></div>
@@ -998,7 +1008,7 @@ function addProdutoConcluir(){
 function removeProdutoConcluir(i){ concluirProdutos.splice(i,1); renderProdutosConcluir(); updConcluir(); }
 function renderProdutosConcluir(){
   const box=document.getElementById('cc-prod-list'); if(!box) return;
-  box.innerHTML = concluirProdutos.map((p,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#0F0F0F;border:1px solid var(--border);border-radius:7px;margin-bottom:6px;font-size:12px">
+  box.innerHTML = concluirProdutos.map((p,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--inner);border:1px solid var(--border);border-radius:7px;margin-bottom:6px;font-size:12px">
     <span>${esc(p.nome)}</span><span style="display:flex;align-items:center;gap:10px"><span style="color:var(--gold)">${fmtMoney(p.preco)}</span><button onclick="removeProdutoConcluir(${i})" style="background:none;border:none;color:var(--red);font-size:15px;cursor:pointer">×</button></span>
   </div>`).join('');
 }
@@ -1088,7 +1098,7 @@ function viewClientes(){
     <div class="sec-head"><div><h1>Clientes</h1><p>${state.clientes.length} cliente(s) cadastrado(s)</p></div>
       <button class="btn btn-primary" onclick="modalCliente()">+ Novo Cliente</button></div>
     <div style="position:relative;margin-bottom:18px"><div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none">${ICON.search(15,'#6B7280')}</div>
-      <input class="inp" style="padding-left:34px" value="${esc(cliBusca)}" placeholder="Buscar por nome ou telefone..." oninput="cliBusca=this.value;render();document.querySelector('#view .inp').focus()"></div>
+      <input id="cli-busca" class="inp" style="padding-left:34px" value="${esc(cliBusca)}" placeholder="Buscar por nome ou telefone..." oninput="cliBusca=this.value;render();const el=document.getElementById('cli-busca');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}"></div>
     ${lista.length?lista.map(c=>{const h=histCliente(c.nome);return `<div class="card list-item" style="padding:15px;opacity:${c.bloqueado?.65:1}">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--gold-m),#2A2A2A);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:var(--gold);flex-shrink:0">${esc(c.nome.charAt(0).toUpperCase())}</div>
@@ -1128,7 +1138,7 @@ function modalHist(id){
   const c=state.clientes.find(x=>x.id===id); const h=histCliente(c.nome);
   openModal(`
     <div class="modal-head"><h2>Histórico — ${esc(c.nome)}</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    ${h.length?h.map(a=>`<div style="padding:10px 13px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
+    ${h.length?h.map(a=>`<div style="padding:10px 13px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
       <div style="display:flex;justify-content:space-between"><span style="font-weight:600;font-size:13px">${esc(a.servico)}</span><span style="font-size:12px;color:var(--gold)">${fmtDate(a.data)} ${esc(a.hora)}</span></div>
       <div style="font-size:11px;color:var(--text-2);margin-top:3px">${a.barbeiro?esc(a.barbeiro)+' · ':''}<span style="color:${ST_COLOR[a.status]}">${ST_LBL[a.status]}</span></div>
     </div>`).join(''):'<p style="color:var(--text-3);text-align:center;padding:16px 0">Sem atendimentos registrados</p>'}
@@ -1210,7 +1220,7 @@ function viewFinanceiro(){
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button></div>
       </div>`;}).join(''):`<div class="card empty">${ICON.dollar(36,'#252525')}<p>Nenhum lançamento${finModo!=='tudo'?' neste período':''}</p><button class="btn btn-primary" onclick="modalLanc()">Novo Lançamento</button></div>`}
-    ${finModo!=='tudo'?`<div style="margin-top:16px;padding:12px 14px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);font-size:12px;color:var(--text-3);text-align:center">
+    ${finModo!=='tudo'?`<div style="margin-top:16px;padding:12px 14px;background:var(--inner);border-radius:8px;border:1px solid var(--border);font-size:12px;color:var(--text-3);text-align:center">
       Total geral (todos os períodos) — Entradas: <strong style="color:var(--green)">${fmtMoney(entAll)}</strong> · Saídas: <strong style="color:var(--red)">${fmtMoney(saiAll)}</strong> · Saldo: <strong style="color:${entAll-saiAll>=0?'var(--green)':'var(--red)'}">${fmtMoney(entAll-saiAll)}</strong>
     </div>`:''}`;
 }
@@ -1339,7 +1349,7 @@ function viewConfig(){
       <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">${cfg.barbeiros.map((b,i)=>`<span class="chip">${esc(b)}<button onclick="cfg_delArr('barbeiros',${i})">×</button></span>`).join('')}</div>
       <div style="display:flex;gap:7px"><input class="inp" style="flex:1" placeholder="Nome do barbeiro" onkeydown="if(event.key==='Enter')cfg_addArr('barbeiros',this)"><button class="btn btn-primary" onclick="cfg_addArr('barbeiros',this.previousElementSibling)">Adicionar</button></div>
       <h3 style="font-size:14px;margin:18px 0 12px">Locais de Atendimento</h3>
-      ${cfg.locais.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#0F0F0F;border:1px solid var(--border);border-radius:8px;margin-bottom:7px"><span style="font-size:13px">${esc(l.nome)}</span>${i>0?`<button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delLocal(${i})">×</button>`:''}</div>`).join('')}
+      ${cfg.locais.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--inner);border:1px solid var(--border);border-radius:8px;margin-bottom:7px"><span style="font-size:13px">${esc(l.nome)}</span>${i>0?`<button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delLocal(${i})">×</button>`:''}</div>`).join('')}
       <div style="display:flex;gap:7px;margin-top:4px"><input class="inp" style="flex:1" placeholder="Nome do local" onkeydown="if(event.key==='Enter')cfg_addLocal(this)"><button class="btn btn-primary" onclick="cfg_addLocal(this.previousElementSibling)">Adicionar</button></div>
     </div>
     <div class="card" style="margin-top:14px">
@@ -1360,9 +1370,9 @@ function viewConfig(){
       <h3 style="font-size:14px;margin-bottom:12px">Taxas da Maquininha</h3>
       <p style="font-size:12px;color:var(--text-2);margin-bottom:18px">O valor líquido é calculado automaticamente ao registrar uma entrada por cartão.</p>
       <div class="field"><label class="lbl">Taxa Débito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaDebito}" onchange="cfg_setNum('taxaDebito',this.value)"></div>
-      <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaDebito/100))}</strong></div>
+      <div style="padding:9px 12px;background:var(--inner);border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaDebito/100))}</strong></div>
       <div class="field"><label class="lbl">Taxa Crédito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaCredito}" onchange="cfg_setNum('taxaCredito',this.value)"></div>
-      <div style="padding:9px 12px;background:#0F0F0F;border-radius:7px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaCredito/100))}</strong></div>
+      <div style="padding:9px 12px;background:var(--inner);border-radius:7px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaCredito/100))}</strong></div>
     </div>`;
   } else if(cfgTab==='financeiro'){
     body=`<div class="card">
@@ -1385,7 +1395,7 @@ function viewConfig(){
         <button class="btn btn-primary btn-sm" onclick="modalDespesaFixa()">+ Add</button>
       </div>
       <p style="font-size:11px;color:var(--text-3);margin-bottom:12px">Aluguel, luz, internet... Use o botão abaixo para lançar todas de uma vez no mês atual.</p>
-      ${cfg.despesasFixas.length?cfg.despesasFixas.map((d,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);margin-bottom:7px">
+      ${cfg.despesasFixas.length?cfg.despesasFixas.map((d,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:7px">
         <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(d.nome)}</div><div style="font-size:11px;color:var(--text-3)">todo dia ${d.dia} · ${esc(d.categoria||'despesa')}</div></div>
         <div style="font-size:13px;font-weight:700;color:var(--red)">${fmtMoney(d.valor)}</div>
         <button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delFixa(${i})">×</button>
@@ -1394,11 +1404,11 @@ function viewConfig(){
   } else if(cfgTab==='mensagens'){
     body=`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><h3 style="font-size:14px">Lembretes WhatsApp</h3><button class="btn btn-primary" onclick="modalLembrete()">+ Novo</button></div>
-      <div style="padding:8px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:14px;font-size:12px;color:var(--text-2)"><strong style="color:var(--gold)">Variáveis:</strong> ${VARS.join(' ')}</div>
+      <div style="padding:8px 12px;background:var(--inner);border-radius:7px;margin-bottom:14px;font-size:12px;color:var(--text-2)"><strong style="color:var(--gold)">Variáveis:</strong> ${VARS.join(' ')}</div>
       <div class="field"><label class="lbl">Mensagem de Confirmação</label><textarea class="inp" style="min-height:60px" onchange="cfg_set('confirmacao',this.value)">${esc(cfg.confirmacao||'')}</textarea></div>
       <div class="field" style="margin-top:12px"><label class="lbl">Mensagem de Alteração de Horário</label><div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Enviada quando você editar um agendamento. Extra: <code>{dataAnterior}</code> <code>{horaAnterior}</code></div><textarea class="inp" style="min-height:60px" onchange="cfg_set('msgAlteracao',this.value)">${esc(cfg.msgAlteracao||'')}</textarea></div>
       <h3 style="font-size:13px;margin:16px 0 10px;color:var(--text-2)">Lembretes automáticos</h3>
-      ${cfg.lembretes.length?cfg.lembretes.map(l=>`<div style="padding:12px;background:#0F0F0F;border-radius:8px;border:1px solid ${l.ativo?'#C9A84C35':'var(--border)'};margin-bottom:10px;opacity:${l.ativo?1:.55}">
+      ${cfg.lembretes.length?cfg.lembretes.map(l=>`<div style="padding:12px;background:var(--inner);border-radius:8px;border:1px solid ${l.ativo?'#C9A84C35':'var(--border)'};margin-bottom:10px;opacity:${l.ativo?1:.55}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="display:flex;align-items:center;gap:6px">${ICON.clock(13,'#C9A84C')}<span style="font-size:12px;font-weight:700;color:var(--gold)">${l.horasAntes}h antes do horário</span></div>
           <div style="display:flex;gap:5px">
@@ -1421,7 +1431,7 @@ function viewConfig(){
     body=`<div class="card">
       <h3 style="font-size:14px;margin-bottom:4px">Serviços</h3>
       <p style="font-size:11px;color:var(--text-3);margin-bottom:12px">Preço e tempo de execução de cada serviço.</p>
-      ${cfg.servicos.length?cfg.servicos.map((s,i)=>`<div style="padding:10px 12px;background:#0F0F0F;border:1px solid var(--border);border-radius:8px;margin-bottom:7px">
+      ${cfg.servicos.length?cfg.servicos.map((s,i)=>`<div style="padding:10px 12px;background:var(--inner);border:1px solid var(--border);border-radius:8px;margin-bottom:7px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="flex:1;font-size:13px;display:flex;align-items:center;gap:6px">${ICON.scissors(12,'#C9A84C')}${esc(s.nome)}</span>
         <button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delArr('servicos',${i})">×</button></div>
         <div style="display:flex;gap:8px">
@@ -1445,7 +1455,7 @@ function viewConfig(){
     ${cfgTab==='nuvem'?`<div class="card">
       <h3 style="font-size:14px;margin-bottom:6px">☁️ Supabase (recomendado)</h3>
       <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Gratuito para sempre, sem regras que expiram. Seus dados ficam na nuvem e são recuperáveis em qualquer dispositivo.</p>
-      <div style="background:#0F0F0F;border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);margin-bottom:14px;line-height:1.8">
+      <div style="background:var(--inner);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);margin-bottom:14px;line-height:1.8">
         <strong style="color:var(--gold);display:block;margin-bottom:6px">Como configurar (5 minutos):</strong>
         1️⃣ Acesse <a href="https://supabase.com" target="_blank" style="color:var(--gold)">supabase.com</a> → crie conta gratuita<br>
         2️⃣ Crie um novo projeto → aguarde inicializar<br>
@@ -1460,7 +1470,7 @@ function viewConfig(){
           ${db?'✅ Firebase conectado e ativo':(SB_URL&&SB_URL.length>10?'✅ Supabase ativo':'⚠️ Sem nuvem configurada — dados apenas no dispositivo')}
         </div>
       </div>
-      <div style="font-size:11px;color:var(--text-3);padding:8px 12px;background:#0F0F0F;border-radius:7px;margin-bottom:14px">Para alterar o URL e a chave, edite diretamente o arquivo <code>index.html</code> no GitHub nas linhas <code>const SB_URL</code> e <code>const SB_KEY</code>.</div>
+      <div style="font-size:11px;color:var(--text-3);padding:8px 12px;background:var(--inner);border-radius:7px;margin-bottom:14px">Para alterar o URL e a chave, edite diretamente o arquivo <code>index.html</code> no GitHub nas linhas <code>const SB_URL</code> e <code>const SB_KEY</code>.</div>
     </div>
     <div class="card" style="margin-top:14px">
       <h3 style="font-size:14px;margin-bottom:6px">🔥 Recuperar dados do Firebase</h3>
@@ -1513,7 +1523,7 @@ function lancarDespesasFixas(){
   alert(`✅ ${novas.length} despesa(s) lançadas para ${mes}.`);
 }
 function cfg_set(path,v){ const k=path.split('.'); let o=state.config; for(let i=0;i<k.length-1;i++)o=o[k[i]]; o[k[k.length-1]]=v; saveConfig(); }
-function cfg_setNum(k,v){ state.config[k]=parseFloat(v)||0; saveConfig(); render(); }
+function cfg_setNum(k,v){ state.config[k]=parseFloat(v)||0; saveConfig(); }
 function cfg_addArr(key,inp){ const v=inp.value.trim(); if(v){ state.config[key].push(v); saveConfig(); render(); } }
 function cfg_delArr(key,i){ state.config[key].splice(i,1); saveConfig(); render(); }
 function cfg_setServ(i,campo,v){ state.config.servicos[i][campo]=parseFloat(v)||0; saveConfig(); }
@@ -1611,6 +1621,9 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 async function boot(){
   migrarDados();
   applyTema();
+  // loading state
+  const viewEl=document.getElementById('view');
+  if(viewEl) viewEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite"></div><p style="font-size:13px;color:var(--text-3)">Carregando...</p></div>`;
   if(db){
     setCloudStatus('☁️ Carregando...','#9CA3AF');
     try{

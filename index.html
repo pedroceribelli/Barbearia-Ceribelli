@@ -594,8 +594,9 @@ function viewAgenda(){
   if(agFiltroStatus) lista=lista.filter(a=>a.status===agFiltroStatus);
   lista.sort((a,b)=>a.hora>b.hora?1:-1);
   const barbs=[...new Set(state.agendamentos.map(a=>a.barbeiro).filter(Boolean))];
+  const filtroDesc = [agFiltroBarb?`barbeiro: ${agFiltroBarb}`:'', agFiltroStatus?`status: ${ST_LBL[agFiltroStatus]||agFiltroStatus}`:''  ].filter(Boolean).join(' · ');
   return `
-    <div class="sec-head"><div><h1>Agenda</h1><p>${lista.length} agendamento(s) no dia</p></div>
+    <div class="sec-head"><div><h1>Agenda</h1><p>${lista.length} agendamento(s)${filtroDesc?' — '+filtroDesc:''}</p></div>
       <button class="btn btn-primary" onclick="modalAgenda()">+ Novo Agendamento</button></div>
     ${weekStrip()}
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
@@ -1016,32 +1017,83 @@ function modalHist(id){
 }
 
 /* ============ FINANCEIRO ============ */
-let finFiltro=todayStr();
+let finFiltro=todayStr(), finModo='mes';
 const FP_COLOR={pix:'#10B981',dinheiro:'#3B82F6',debito:'#8B5CF6',credito:'#F59E0B'};
 const CATS=['Serviço','Produto','Aluguel','Material','Salário','Outros'];
+function finLista(){
+  const dias=weekDays(finFiltro);
+  const filtros={dia:l=>l.data===finFiltro,semana:l=>dias.includes(l.data),mes:l=>(l.data||'').startsWith(finFiltro.slice(0,7)),ano:l=>(l.data||'').startsWith(finFiltro.slice(0,4)),tudo:()=>true};
+  return state.lancamentos.filter(filtros[finModo]||filtros.tudo).sort((a,b)=>b.createdAt-a.createdAt);
+}
+function periodoLabel(){
+  const d=finFiltro, mes=d.slice(0,7), ano=d.slice(0,4);
+  const labels={
+    dia:fmtDate(d),
+    semana:`${fmtDate(weekDays(d)[0])} – ${fmtDate(weekDays(d)[6])}`,
+    mes:new Date(d+'T12:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}),
+    ano,tudo:'Todo o período'
+  };
+  return labels[finModo]||'';
+}
 function viewFinanceiro(){
-  const lista=state.lancamentos.filter(l=>!finFiltro||l.data===finFiltro).sort((a,b)=>b.createdAt-a.createdAt);
+  const lista=finLista();
   const ent=lista.filter(l=>l.tipo==='entrada').reduce((s,l)=>s+(l.valorLiquido??l.valor),0);
   const sai=lista.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
   const saldo=ent-sai;
-  const cards=[{l:'Entradas',v:fmtMoney(ent),c:'var(--green)',bg:'var(--green-bg)'},{l:'Saídas',v:fmtMoney(sai),c:'var(--red)',bg:'var(--red-bg)'},{l:'Saldo',v:fmtMoney(saldo),c:saldo>=0?'var(--green)':'var(--red)',bg:saldo>=0?'var(--green-bg)':'var(--red-bg)'}];
+  const entAll=state.lancamentos.filter(l=>l.tipo==='entrada').reduce((s,l)=>s+(l.valorLiquido??l.valor),0);
+  const saiAll=state.lancamentos.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  // por forma de pagamento (entradas)
+  const fps=['pix','dinheiro','debito','credito'];
+  const entFP=fps.map(fp=>({fp,v:lista.filter(l=>l.tipo==='entrada'&&l.formaPagamento===fp).reduce((s,l)=>s+(l.valorLiquido??l.valor),0)})).filter(x=>x.v>0);
+  const modos=[['dia','Dia'],['semana','Semana'],['mes','Mês'],['ano','Ano'],['tudo','Tudo']];
+  // navegação prev/next
+  function navDate(dir){
+    const d=parseLocalDate(finFiltro); const D=new Date(d);
+    if(finModo==='dia'){D.setDate(D.getDate()+dir);}
+    else if(finModo==='semana'){D.setDate(D.getDate()+dir*7);}
+    else if(finModo==='mes'){D.setMonth(D.getMonth()+dir);}
+    else if(finModo==='ano'){D.setFullYear(D.getFullYear()+dir);}
+    return toISO(D);
+  }
+  const showNav=finModo!=='tudo';
   return `
     <div class="sec-head"><div><h1>Financeiro</h1><p>Controle de entradas e saídas</p></div>
       <button class="btn btn-primary" onclick="modalLanc()">+ Novo Lançamento</button></div>
-    <div style="margin-bottom:16px"><input type="date" class="inp" style="max-width:200px" value="${finFiltro}" onchange="finFiltro=this.value;render()"></div>
-    <div class="row3" style="margin-bottom:18px">${cards.map(c=>`<div style="background:${c.bg};border:1px solid ${c.c}30;border-radius:10px;padding:12px;text-align:center">
-      <div style="font-size:14px;font-weight:700;color:${c.c}">${c.v}</div><div style="font-size:10px;color:${c.c};opacity:.7;margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.l}</div></div>`).join('')}</div>
+    <div class="tabs" style="margin-bottom:12px">${modos.map(([id,l])=>`<button class="tab ${finModo===id?'active':''}" onclick="finModo='${id}';render()">${l}</button>`).join('')}</div>
+    ${finModo==='dia'?`<input type="date" class="inp" style="max-width:180px;margin-bottom:14px" value="${finFiltro}" onchange="finFiltro=this.value;render()">`:
+      finModo==='mes'?`<input type="month" class="inp" style="max-width:180px;margin-bottom:14px" value="${finFiltro.slice(0,7)}" onchange="finFiltro=this.value+'-01';render()">`:
+      showNav?`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <button class="btn btn-sm" onclick="finFiltro='${navDate(-1)}';render()">‹</button>
+        <span style="font-size:13px;font-weight:600;color:var(--gold)">${periodoLabel()}</span>
+        <button class="btn btn-sm" onclick="finFiltro='${navDate(1)}';render()">›</button>
+      </div>`:`<div style="margin-bottom:14px;font-size:13px;font-weight:600;color:var(--gold)">${periodoLabel()}</div>`}
+    <div class="row3" style="margin-bottom:16px">
+      ${[{l:'Entradas',v:fmtMoney(ent),c:'var(--green)',bg:'var(--green-bg)'},{l:'Saídas',v:fmtMoney(sai),c:'var(--red)',bg:'var(--red-bg)'},{l:'Saldo',v:fmtMoney(saldo),c:saldo>=0?'var(--green)':'var(--red)',bg:saldo>=0?'var(--green-bg)':'var(--red-bg)'}].map(c=>
+        `<div style="background:${c.bg};border:1px solid ${c.c}30;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:14px;font-weight:700;color:${c.c}">${c.v}</div>
+          <div style="font-size:10px;color:${c.c};opacity:.7;margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.l}</div>
+        </div>`).join('')}
+    </div>
+    ${entFP.length>1?`<div class="card" style="padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Entradas por pagamento</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${entFP.map(x=>`<div style="flex:1;min-width:90px;background:${FP_COLOR[x.fp]}18;border:1px solid ${FP_COLOR[x.fp]}30;border-radius:8px;padding:8px 10px;text-align:center">
+        <div style="font-size:12px;font-weight:700;color:${FP_COLOR[x.fp]}">${fmtMoney(x.v)}</div>
+        <div style="font-size:10px;color:var(--text-3);margin-top:2px">${({pix:'Pix',dinheiro:'Dinheiro',debito:'Débito',credito:'Crédito'})[x.fp]}</div>
+      </div>`).join('')}</div></div>`:''}
     ${lista.length?lista.map(l=>{const taxa=(l.tipo==='entrada'&&(l.formaPagamento==='debito'||l.formaPagamento==='credito'))?l.valor-(l.valorLiquido??l.valor):0;
       return `<div class="card list-item" style="padding:14px;border-left:3px solid ${l.tipo==='entrada'?'var(--green)':'var(--red)'}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div style="flex:1"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">${ICON[l.tipo==='entrada'?'up':'down'](13,l.tipo==='entrada'?'#22C55E':'#EF4444')}<span style="font-weight:600;font-size:13px">${esc(l.descricao)}</span></div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${l.categoria?`<span style="font-size:11px;color:var(--text-2)">${esc(l.categoria)}</span>`:''}
-            <span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${FP_COLOR[l.formaPagamento]}18;color:${FP_COLOR[l.formaPagamento]}">${fmtPayment(l.formaPagamento)}</span></div>
-          ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}</div>
-        <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:15px;font-weight:700;color:${l.tipo==='entrada'?'var(--green)':'var(--red)'}">${l.tipo==='entrada'?'+':'−'}${fmtMoney(l.tipo==='entrada'?(l.valorLiquido??l.valor):l.valor)}</div><div style="font-size:10px;color:var(--text-3);margin-top:2px">${fmtDate(l.data)}</div></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button></div>
-    </div>`}).join(''):`<div class="card empty">${ICON.dollar(36,'#252525')}<p>Nenhum lançamento neste período</p><button class="btn btn-primary" onclick="modalLanc()">Novo Lançamento</button></div>`}`;
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="flex:1"><div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">${ICON[l.tipo==='entrada'?'up':'down'](13,l.tipo==='entrada'?'#22C55E':'#EF4444')}<span style="font-weight:600;font-size:13px">${esc(l.descricao)}</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${l.categoria?`<span style="font-size:11px;color:var(--text-2)">${esc(l.categoria)}</span>`:''}
+              <span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${FP_COLOR[l.formaPagamento]||'#9CA3AF'}18;color:${FP_COLOR[l.formaPagamento]||'#9CA3AF'}">${fmtPayment(l.formaPagamento)}</span></div>
+            ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}</div>
+          <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:15px;font-weight:700;color:${l.tipo==='entrada'?'var(--green)':'var(--red)'}">${l.tipo==='entrada'?'+':'−'}${fmtMoney(l.tipo==='entrada'?(l.valorLiquido??l.valor):l.valor)}</div><div style="font-size:10px;color:var(--text-3);margin-top:2px">${fmtDate(l.data)}</div></div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button></div>
+      </div>`;}).join(''):`<div class="card empty">${ICON.dollar(36,'#252525')}<p>Nenhum lançamento${finModo!=='tudo'?' neste período':''}</p><button class="btn btn-primary" onclick="modalLanc()">Novo Lançamento</button></div>`}
+    ${finModo!=='tudo'?`<div style="margin-top:16px;padding:12px 14px;background:#0F0F0F;border-radius:8px;border:1px solid var(--border);font-size:12px;color:var(--text-3);text-align:center">
+      Total geral (todos os períodos) — Entradas: <strong style="color:var(--green)">${fmtMoney(entAll)}</strong> · Saídas: <strong style="color:var(--red)">${fmtMoney(saiAll)}</strong> · Saldo: <strong style="color:${entAll-saiAll>=0?'var(--green)':'var(--red)'}">${fmtMoney(entAll-saiAll)}</strong>
+    </div>`:''}`;
 }
 function delLanc(id){ if(confirm('Remover lançamento?')){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); render(); } }
 let lancTmp={tipo:'entrada',formaPagamento:'pix'};

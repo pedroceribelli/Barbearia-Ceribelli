@@ -769,10 +769,31 @@ function viewLembretes(){
   const notifs=state.notifAlteracao.filter(n=>!n.enviado);
   const fmtQuando=(d)=>{ const hoje=toISO(d)===todISOsafe(); return (hoje?'hoje':parseLocalDate(toISO(d)).toLocaleDateString('pt-BR',{day:'numeric',month:'short'}))+' às '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
   const totalBadge=pend.length+notifs.length;
-  const notifStatus=!('Notification' in window)?'unsupported':Notification.permission;
-  const notifBanner=notifStatus==='granted'?''
-    :notifStatus==='denied'?`<div style="padding:10px 14px;background:var(--red-bg);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--red)">🔕 Notificações bloqueadas. Habilite nas configurações do navegador.</div>`
-    :`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px"><span style="font-size:12px;color:var(--amber)">🔔 Ative as notificações para receber alertas no celular quando um lembrete estiver pronto.</span><button class="btn btn-amber btn-sm" style="white-space:nowrap" onclick="pedirPermissaoNotif()">Ativar</button></div>`;
+  const isPWA=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  const notifSupport='Notification' in window;
+  const notifPerm=notifSupport?Notification.permission:'unsupported';
+  let notifBanner='';
+  if(notifPerm==='granted'){
+    notifBanner=`<div style="padding:10px 14px;background:var(--green-bg);border:1px solid #22C55E30;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span style="font-size:12px;color:var(--green)">🔔 Notificações ativadas — você receberá alertas quando um lembrete estiver pronto.</span>
+      <button class="btn btn-sm" style="font-size:10px;white-space:nowrap" onclick="Notification.permission&&verificarNotificacoes()">Testar</button></div>`;
+  } else if(notifPerm==='denied'){
+    notifBanner=`<div style="padding:10px 14px;background:var(--red-bg);border:1px solid #EF444430;border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--red)">
+      🔕 <strong>Notificações bloqueadas.</strong><br>
+      <span style="color:var(--text-2)">iPhone: Configurações → Safari → ${isPWA?'Barbearia Ceribelli':'Configurações do website'} → Notificações → Permitir<br>
+      Android: Configurações → Chrome → Configurações do site → Notificações → permitir este site</span></div>`;
+  } else if(!notifSupport||(!isPWA&&/iPhone|iPad/i.test(navigator.userAgent))){
+    notifBanner=`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--amber)">
+      📲 <strong>Para ativar notificações no iPhone:</strong><br>
+      <span style="color:var(--text-2)">1. Abra no <strong>Safari</strong> → compartilhar → <strong>"Adicionar à Tela de Início"</strong><br>
+      2. Abra o app pelo ícone criado na tela inicial<br>
+      3. Volte nesta aba e toque em Ativar</span>
+      ${isPWA?`<br><button class="btn btn-amber btn-sm" style="margin-top:8px" onclick="pedirPermissaoNotif()">🔔 Ativar notificações</button>`:''}</div>`;
+  } else {
+    notifBanner=`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <span style="font-size:12px;color:var(--amber)">🔔 Ative as notificações para receber alertas quando um lembrete estiver pronto.</span>
+      <button class="btn btn-amber btn-sm" style="white-space:nowrap" onclick="pedirPermissaoNotif()">Ativar</button></div>`;
+  }
   return `
     <div class="sec-head"><div><h1>Lembretes</h1><p>${pend.length} para enviar agora · ${prox.length} agendado(s)${notifs.length?' · '+notifs.length+' alteração(ões)':''}</p></div></div>
     ${notifBanner}

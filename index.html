@@ -134,8 +134,8 @@
   .pay.on{border-color:var(--gold);background:rgba(201,168,76,.1);color:var(--gold)}
 
   /* Tabs config */
-  .tabs{display:flex;gap:3px;margin-bottom:22px;background:#0D0D0D;padding:4px;border-radius:10px}
-  .tab{flex:1;padding:7px 4px;border-radius:7px;border:none;background:transparent;color:var(--text-3);font-size:12px;font-weight:600}
+  .tabs{display:flex;gap:3px;margin-bottom:22px;background:var(--inner);padding:4px;border-radius:10px;overflow-x:auto}
+  .tab{flex:1;min-width:fit-content;padding:7px 8px;border-radius:7px;border:none;background:transparent;color:var(--text-3);font-size:12px;font-weight:600;white-space:nowrap}
   .tab.active{background:var(--card);color:var(--gold)}
 
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -264,11 +264,13 @@ async function cloudLoad(){
     if(!rows.length) return false;
     rows.forEach(row=>{
       if(row.id==='config'){ if(row.valor) state.config=row.valor; }
-      else if(row.valor) state[row.id]=row.valor;
+      else if(row.id==='notas'){ if(row.valor!==undefined) state.notas=row.valor; }
+      else if(row.valor!==null&&row.valor!==undefined) state[row.id]=row.valor;
     });
     migrarDados();
-    ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>LS.set('bc:'+k,state[k]));
+    ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao','pacotes'].forEach(k=>LS.set('bc:'+k,state[k]));
     LS.set('bc:config',state.config);
+    LS.set('bc:notas',state.notas);
     return true;
   }catch(e){ console.warn('Supabase load:',e); return false; }
 }
@@ -361,6 +363,7 @@ function migrarDados(){
   if(!c.comissoes) c.comissoes = {};
   if(!Array.isArray(c.despesasFixas)) c.despesasFixas = [];
   if(c.pinHash===undefined) c.pinHash = '';
+  if(!Array.isArray(state.pacotes)) state.pacotes = [];
 }
 
 /* ============ ÍCONES ============ */
@@ -388,7 +391,11 @@ const ICON = {
   sun:(p,c)=>svg('<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>',p,c),
   moon:(p,c)=>svg('<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>',p,c),
   chart:(p,c)=>svg('<path d="M18 20V10M12 20V4M6 20v-6"/>',p,c),
+  award:(p,c)=>svg('<circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/>',p,c),
+  tag:(p,c)=>svg('<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',p,c),
+  cut:(p,c)=>svg('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>',p,c),
 };
+const VERSAO='0.1.1.9';
 
 /* ============ ESTADO ============ */
 let state = {
@@ -400,6 +407,7 @@ let state = {
   lembretesEnviados: LS.get('bc:lembretesEnviados') || [],
   notifAlteracao: LS.get('bc:notifAlteracao') || [],
   notas: LS.get('bc:notas') || '',
+  pacotes: LS.get('bc:pacotes') || [],
   config: LS.get('bc:config') || {
     taxaDebito:1.37, taxaCredito:3.15,
     metaMensal:0,
@@ -578,6 +586,8 @@ const NAV = [
   {id:'clientes',ic:'users',l:'Clientes'},
   {id:'financeiro',ic:'dollar',l:'Financeiro'},
   {id:'produtos',ic:'package',l:'Produtos'},
+  {id:'barbeiros',ic:'cut',l:'Barbeiros'},
+  {id:'pacotes',ic:'tag',l:'Pacotes'},
   {id:'configuracoes',ic:'settings',l:'Config.'},
 ];
 function setView(v){
@@ -612,7 +622,8 @@ function render(){
     if(!el) return;
     el.innerHTML=({
       dashboard:viewDashboard, agenda:viewAgenda, lembretes:viewLembretes, clientes:viewClientes,
-      financeiro:viewFinanceiro, produtos:viewProdutos, configuracoes:viewConfig,
+      financeiro:viewFinanceiro, produtos:viewProdutos, barbeiros:viewBarbeiros,
+      pacotes:viewPacotes, configuracoes:viewConfig,
     }[state.view]||viewDashboard)();
     atualizarBadgeLembretes();
   }catch(e){
@@ -723,7 +734,7 @@ function viewAgenda(){
       <div class="actions">
         ${a.status!=='concluido'?`<button class="btn btn-green btn-sm" onclick="modalConcluir('${a.id}')">✓ Concluir</button>`:''}
         ${a.status!=='cancelado'?`<button class="btn btn-amber btn-sm" onclick="setStatusAg('${a.id}','cancelado')">✕ Cancelar</button>`:''}
-        ${a.clienteTelefone?`<button class="btn btn-sm" onclick="enviarConfirmacao('${a.id}')">📲 Confirmação</button>`:''}
+        ${a.clienteTelefone?`<button class="btn btn-sm ${a.confirmacaoEnviada?'btn-green':''}" onclick="enviarConfirmacao('${a.id}')">${a.confirmacaoEnviada?'✅ Confirmado':'📲 Confirmação'}</button>`:''}
         ${a.clienteTelefone?`<button class="btn btn-sm" onclick="modalMensagens('${a.id}')">📩 Mensagens</button>`:''}
         <button class="btn btn-sm" onclick="modalAgenda('${a.id}')">Editar</button>
         <button class="btn btn-red btn-sm" onclick="delAgenda('${a.id}')">Remover</button>
@@ -815,7 +826,7 @@ function saveAgenda(id){
     }
     state.agendamentos=state.agendamentos.map(a=>a.id===id?{...a,...data}:a);
   } else {
-    state.agendamentos.push({...data,id:uid(),createdAt:Date.now()});
+    state.agendamentos.push({...data,id:uid(),createdAt:Date.now(),confirmacaoEnviada:false});
   }
   save('agendamentos'); closeModal(); render();
 }
@@ -950,6 +961,9 @@ function marcarEnviado(key){
 function enviarConfirmacao(id){
   const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
   abrirWhatsApp(a.clienteTelefone, montarMensagem(state.config.confirmacao,a));
+  // marca confirmação como enviada
+  state.agendamentos=state.agendamentos.map(x=>x.id===id?{...x,confirmacaoEnviada:true}:x);
+  save('agendamentos'); render();
 }
 function opcoesMensagem(){
   return [{nome:'Confirmação',tpl:state.config.confirmacao}, ...(state.config.lembretes||[]).map(l=>({nome:`Lembrete ${l.horasAntes}h antes`,tpl:l.template}))];
@@ -1089,14 +1103,38 @@ function confirmarVender(id){
   save('lancamentos'); save('produtos'); closeModal(); render();
 }
 
-/* ============ CLIENTES ============ */
-let cliBusca='';
+/* ============ RANKING CLIENTES ============ */
+let cliBusca='', cliTab='lista';
 function histCliente(nome){ return state.agendamentos.filter(a=>a.clienteNome===nome).sort((a,b)=>`${b.data}${b.hora}`>`${a.data}${a.hora}`?1:-1); }
+function gastoCliente(nome){
+  return state.agendamentos
+    .filter(a=>a.clienteNome===nome&&a.status==='concluido'&&a.lancamentoId)
+    .reduce((s,a)=>{ const l=state.lancamentos.find(x=>x.id===a.lancamentoId); return s+(l?(l.valorLiquido??l.valor):0); },0);
+}
 function viewClientes(){
   const lista=state.clientes.filter(c=>c.nome.toLowerCase().includes(cliBusca.toLowerCase())||(c.telefone||'').includes(cliBusca));
+  if(cliTab==='ranking'){
+    const ranked=[...state.clientes].map(c=>({...c,gasto:gastoCliente(c.nome),ags:histCliente(c.nome).filter(a=>a.status==='concluido').length})).sort((a,b)=>b.gasto-a.gasto).filter(c=>c.gasto>0||c.ags>0);
+    return `
+      <div class="sec-head"><div><h1>Clientes</h1><p>${state.clientes.length} cliente(s) cadastrado(s)</p></div>
+        <button class="btn btn-primary" onclick="modalCliente()">+ Novo</button></div>
+      <div class="tabs" style="margin-bottom:16px"><button class="tab" onclick="cliTab='lista';render()">Lista</button><button class="tab active" onclick="cliTab='ranking';render()">🏆 Ranking</button></div>
+      ${ranked.length?ranked.map((c,i)=>{
+        const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+        return `<div class="card list-item" style="padding:14px;${i===0?'border-color:var(--gold)':''}">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="font-size:22px;width:36px;text-align:center;flex-shrink:0">${medal||`<span style="font-size:14px;font-weight:700;color:var(--text-3)">#${i+1}</span>`}</div>
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--gold-m),#2A2A2A);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--gold);flex-shrink:0">${esc(c.nome.charAt(0).toUpperCase())}</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:14px">${esc(c.nome)}</div>
+              <div style="font-size:11px;color:var(--text-2);margin-top:2px">${c.ags} atendimento(s)</div></div>
+            <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--green)">${fmtMoney(c.gasto)}</div><div style="font-size:10px;color:var(--text-3)">total gasto</div></div>
+          </div></div>`;}).join(''):`<div class="card empty">${ICON.award(36,'#252525')}<p>Nenhum cliente com atendimentos concluídos ainda</p></div>`}
+      <div style="margin-top:16px;padding:12px 14px;background:var(--inner);border-radius:8px;font-size:12px;color:var(--text-3);text-align:center">🏆 O primeiro colocado ao final do ano merece um prêmio especial!</div>`;
+  }
   return `
     <div class="sec-head"><div><h1>Clientes</h1><p>${state.clientes.length} cliente(s) cadastrado(s)</p></div>
       <button class="btn btn-primary" onclick="modalCliente()">+ Novo Cliente</button></div>
+    <div class="tabs" style="margin-bottom:16px"><button class="tab active" onclick="cliTab='lista';render()">Lista</button><button class="tab" onclick="cliTab='ranking';render()">🏆 Ranking</button></div>
     <div style="position:relative;margin-bottom:18px"><div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none">${ICON.search(15,'#6B7280')}</div>
       <input id="cli-busca" class="inp" style="padding-left:34px" value="${esc(cliBusca)}" placeholder="Buscar por nome ou telefone..." oninput="cliBusca=this.value;render();const el=document.getElementById('cli-busca');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}"></div>
     ${lista.length?lista.map(c=>{const h=histCliente(c.nome);return `<div class="card list-item" style="padding:15px;opacity:${c.bloqueado?.65:1}">
@@ -1143,6 +1181,131 @@ function modalHist(id){
       <div style="font-size:11px;color:var(--text-2);margin-top:3px">${a.barbeiro?esc(a.barbeiro)+' · ':''}<span style="color:${ST_COLOR[a.status]}">${ST_LBL[a.status]}</span></div>
     </div>`).join(''):'<p style="color:var(--text-3);text-align:center;padding:16px 0">Sem atendimentos registrados</p>'}
   `);
+}
+
+/* ============ BARBEIROS ============ */
+let barbFiltroMes=todayStr().slice(0,7);
+function viewBarbeiros(){
+  const barbs=state.config.barbeiros||[];
+  const com=state.config.comissoes||{};
+  return `
+    <div class="sec-head"><div><h1>Barbeiros</h1><p>Relatório de produção e comissões</p></div></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <label style="font-size:12px;color:var(--text-2)">Mês:</label>
+      <input type="month" class="inp" style="max-width:160px" value="${barbFiltroMes}" onchange="barbFiltroMes=this.value;render()">
+    </div>
+    ${barbs.length?barbs.map(b=>{      const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&(a.data||'').startsWith(barbFiltroMes));
+      const receita=ags.reduce((s,a)=>{ const l=state.lancamentos.find(x=>x.id===a.lancamentoId); return s+(l?(l.valorLiquido??l.valor):0); },0);
+      const pct=parseFloat(com[b])||0;
+      const comissao=receita*pct/100;
+      const byServico={};
+      ags.forEach(a=>{ byServico[a.servico]=(byServico[a.servico]||0)+1; });
+      return `<div class="card list-item" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold-m),#2A2A2A);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--gold)">${esc(b.charAt(0).toUpperCase())}</div>
+            <div><div style="font-weight:700;font-size:15px">${esc(b)}</div><div style="font-size:11px;color:var(--text-2)">${ags.length} serviços em ${new Date(barbFiltroMes+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div></div>
+          </div>
+          <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--green)">${fmtMoney(receita)}</div><div style="font-size:10px;color:var(--text-3)">receita bruta</div></div>
+        </div>
+        ${Object.keys(byServico).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${Object.entries(byServico).map(([s,n])=>`<span style="padding:3px 10px;background:var(--inner);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text-2)">${esc(s)}: <strong>${n}x</strong></span>`).join('')}</div>`:''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div style="padding:10px;background:var(--inner);border-radius:8px;text-align:center">
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">% Comissão</div>
+            <div style="font-size:16px;font-weight:700;color:var(--gold)">${pct}%</div>
+          </div>
+          <div style="padding:10px;background:${comissao>0?'var(--amber-bg)':'var(--inner)'};border:1px solid ${comissao>0?'var(--amber)':'var(--border)'};border-radius:8px;text-align:center">
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">A pagar</div>
+            <div style="font-size:16px;font-weight:700;color:${comissao>0?'var(--amber)':'var(--text-3)'}">${fmtMoney(comissao)}</div>
+          </div>
+        </div>
+        ${pct===0?`<p style="font-size:11px;color:var(--text-3);margin-top:8px;text-align:center">Configure o % de comissão em Config → Financeiro</p>`:''}
+      </div>`;
+    }).join(''):`<div class="card empty">${ICON.cut(36,'#252525')}<p>Nenhum barbeiro cadastrado</p><button class="btn btn-primary" onclick="cfgTab='barbearia';setView('configuracoes')">Cadastrar Barbeiro</button></div>`}`;
+}
+
+/* ============ PACOTES MENSAIS ============ */
+let pacoteServicosTemp=[];
+function viewPacotes(){
+  const ativos=state.pacotes.filter(p=>p.ativo!==false);
+  return `
+    <div class="sec-head"><div><h1>Pacotes Mensais</h1><p>${ativos.length} pacote(s) ativo(s)</p></div>
+      <button class="btn btn-primary" onclick="modalPacote()">+ Novo Pacote</button></div>
+    ${ativos.length?ativos.map(p=>{
+      const total=p.servicos.reduce((s,x)=>s+x.quantidade,0);
+      const usados=p.servicos.reduce((s,x)=>s+(x.usados||0),0);
+      const pct=total>0?Math.round(usados/total*100):0;
+      return `<div class="card list-item" style="padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+          <div><div style="font-weight:700;font-size:14px;color:var(--gold)">${esc(p.clienteNome)}</div>
+            <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(p.nome||'Pacote Mensal')} · ${p.mes||''}</div></div>
+          <div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--green)">${fmtMoney(p.valorTotal||0)}</div><div style="font-size:10px;color:var(--text-3)">/mês</div></div>
+        </div>
+        <div style="background:var(--border);border-radius:6px;height:6px;margin-bottom:8px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pct>=100?'var(--red)':pct>=70?'var(--amber)':'var(--green)'};border-radius:6px"></div></div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:10px">${usados}/${total} serviços usados (${pct}%)</div>
+        ${p.servicos.map((s,si)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--inner);border-radius:7px;margin-bottom:5px">
+          <span style="font-size:12px">${esc(s.servico)}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:12px;color:${(s.usados||0)>=s.quantidade?'var(--red)':'var(--text-2)'}"><strong style="color:var(--text)">${s.usados||0}</strong>/${s.quantidade}</span>
+            ${(s.usados||0)<s.quantidade?`<button class="btn btn-green btn-sm" style="padding:2px 8px;font-size:11px" onclick="usarServicoPacote('${p.id}',${si})">+1</button>`:'<span style="font-size:10px;color:var(--red)">Esgotado</span>'}
+          </div></div>`).join('')}
+        <div class="actions" style="margin-top:10px">
+          <button class="btn btn-sm" onclick="modalPacote('${p.id}')">✎ Editar</button>
+          <button class="btn btn-sm" onclick="resetarPacote('${p.id}')">↺ Reiniciar mês</button>
+          <button class="btn btn-red btn-sm" onclick="encerrarPacote('${p.id}')">Encerrar</button>
+        </div></div>`;
+    }).join(''):`<div class="card empty">${ICON.tag(36,'#252525')}<p>Nenhum pacote ativo</p><p style="font-size:12px;color:var(--text-3);margin-bottom:4px">Crie pacotes mensais para clientes que cortam toda semana</p><button class="btn btn-primary" onclick="modalPacote()">Criar Pacote</button></div>`}`;
+}
+function usarServicoPacote(pid,si){
+  state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,servicos:p.servicos.map((s,i)=>i===si?{...s,usados:(s.usados||0)+1}:s)}:p);
+  save('pacotes'); render();
+}
+function resetarPacote(pid){
+  if(!confirm('Reiniciar o uso de todos os serviços deste pacote para o próximo mês?')) return;
+  state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,servicos:p.servicos.map(s=>({...s,usados:0})),mes:todayStr().slice(0,7)}:p);
+  save('pacotes'); render();
+}
+function encerrarPacote(pid){ if(!confirm('Encerrar este pacote?')) return; state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,ativo:false}:p); save('pacotes'); render(); }
+function modalPacote(id){
+  const p=id?state.pacotes.find(x=>x.id===id):null;
+  pacoteServicosTemp=p?[...p.servicos.map(s=>({...s}))]:[];
+  const clisOpts=state.clientes.map(c=>`<option value="${esc(c.id)}" ${p&&p.clienteNome===c.nome?'selected':''}>${esc(c.nome)}</option>`).join('');
+  const servOpts=(state.config.servicos||[]).map(s=>`<option value="${esc(s.nome||s)}">${esc(s.nome||s)}</option>`).join('');
+  openModal(`
+    <div class="modal-head"><h2>${p?'Editar':'Novo'} Pacote</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div class="field"><label class="lbl">Cliente</label><select id="pk-cli" class="inp">${clisOpts||'<option>Nenhum cliente cadastrado</option>'}</select></div>
+    <div class="row2">
+      <div class="field"><label class="lbl">Nome do pacote</label><input id="pk-nome" class="inp" value="${esc(p?.nome||'Pacote Mensal')}" placeholder="Ex: Plano Semanal"></div>
+      <div class="field"><label class="lbl">Mês (AAAA-MM)</label><input id="pk-mes" type="month" class="inp" value="${p?.mes||todayStr().slice(0,7)}"></div>
+    </div>
+    <div class="field"><label class="lbl">Valor Total (R$)</label><input id="pk-valor" type="number" step="0.01" min="0" class="inp" value="${p?.valorTotal||0}"></div>
+    <div class="field"><label class="lbl">Serviços do Pacote</label>
+      <div id="pk-servicos">${renderServPacote(servOpts)}</div>
+      <button class="btn btn-sm" style="margin-top:8px" onclick="addServPacote()">+ Adicionar serviço</button></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="savePacote('${id||''}')">Salvar</button></div>
+  `);
+}
+function renderServPacote(servOpts){
+  return pacoteServicosTemp.map((s,i)=>`<div style="display:flex;gap:8px;margin-bottom:7px;align-items:center">
+    <select class="inp" style="flex:2" onchange="pacoteServicosTemp[${i}].servico=this.value">${(state.config.servicos||[]).map(sv=>`<option ${(sv.nome||sv)===s.servico?'selected':''}>${esc(sv.nome||sv)}</option>`).join('')}</select>
+    <input type="number" min="1" class="inp" style="width:70px" value="${s.quantidade||1}" placeholder="Qtd" onchange="pacoteServicosTemp[${i}].quantidade=parseInt(this.value)||1">
+    <button style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer" onclick="pacoteServicosTemp.splice(${i},1);document.getElementById('pk-servicos').innerHTML=renderServPacote('')">×</button>
+  </div>`).join('')||'<p style="font-size:12px;color:var(--text-3)">Nenhum serviço adicionado</p>';
+}
+function addServPacote(){
+  const primeiro=(state.config.servicos||[])[0]; pacoteServicosTemp.push({servico:primeiro?.nome||primeiro||'Corte',quantidade:4,usados:0});
+  document.getElementById('pk-servicos').innerHTML=renderServPacote('');
+}
+function savePacote(id){
+  const cliId=document.getElementById('pk-cli').value;
+  const c=state.clientes.find(x=>x.id===cliId);
+  const nome=document.getElementById('pk-nome').value.trim();
+  const mes=document.getElementById('pk-mes').value;
+  const valor=parseFloat(document.getElementById('pk-valor').value)||0;
+  if(!c||!pacoteServicosTemp.length){ alert('Selecione um cliente e adicione pelo menos 1 serviço.'); return; }
+  if(id) state.pacotes=state.pacotes.map(p=>p.id===id?{...p,clienteId:cliId,clienteNome:c.nome,nome,mes,valorTotal:valor,servicos:pacoteServicosTemp}:p);
+  else state.pacotes.push({id:uid(),clienteId:cliId,clienteNome:c.nome,nome,mes,valorTotal:valor,servicos:pacoteServicosTemp,ativo:true,createdAt:Date.now()});
+  save('pacotes'); closeModal(); render();
 }
 
 /* ============ FINANCEIRO ============ */
@@ -1364,6 +1527,13 @@ function viewConfig(){
         :`<p style="font-size:12px;color:var(--text-3);margin-bottom:10px">Sem proteção — qualquer pessoa com o link pode ver os dados.</p>
           <button class="btn btn-primary" onclick="modalSetupPin()">🔒 Configurar PIN</button>`
       }
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:600">📋 Versão do sistema</span>
+        <span style="font-size:13px;font-weight:700;color:var(--gold)">${VERSAO}</span>
+      </div>
+      <p style="font-size:11px;color:var(--text-3);margin-top:5px">Barbearia Ceribelli Management System</p>
     </div>`;
   } else if(cfgTab==='taxas'){
     body=`<div class="card">
@@ -1641,12 +1811,12 @@ async function boot(){
           else if(d&&d.items) state[doc.id]=d.items;
         });
         migrarDados();
-        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>LS.set('bc:'+k,state[k]));
+        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao','pacotes'].forEach(k=>LS.set('bc:'+k,state[k]));
         LS.set('bc:config',state.config);
         LS.set('bc:notas',state.notas);
       } else {
         // Primeira vez: envia dados locais para a nuvem
-        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao'].forEach(k=>save(k));
+        ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao','pacotes'].forEach(k=>save(k));
         saveConfig();
         if(state.notas) db.collection('dados').doc('notas').set({value:state.notas}).catch(()=>{});
       }

@@ -8,8 +8,6 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BC Ceribelli">
-<link rel="apple-touch-icon" sizes="512x512" href="icon.jpg">
-<link rel="icon" type="image/jpeg" href="icon.jpg">
 <title>Barbearia Ceribelli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -35,7 +33,6 @@
   body.tema-claro #topbar{background:rgba(240,240,236,.97)}
   body.tema-claro .modal{box-shadow:0 8px 32px rgba(0,0,0,.15)}
   *{box-sizing:border-box;margin:0;padding:0}
-  html{touch-action:manipulation}
   html,body{height:100%}
   body{
     background:var(--bg); color:var(--text);
@@ -399,7 +396,7 @@ const ICON = {
   tag:(p,c)=>svg('<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',p,c),
   cut:(p,c)=>svg('<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>',p,c),
 };
-const VERSAO='0.1.2';
+const VERSAO='0.1.1.9';
 
 /* ============ ESTADO ============ */
 let state = {
@@ -455,12 +452,8 @@ function salvarNotas(v){ state.notas=v; clearTimeout(notasTimer); notasTimer=set
 /* ============ PWA ============ */
 (function setupPWA(){
   try{
-    const cfg=LS.get('bc:config')||{};
-    const nome=(cfg.barbearia?.nome)||'Barbearia Ceribelli';
-    const iconLink=document.querySelector('link[rel="apple-touch-icon"]');
-    const iconSrc=iconLink?.href||'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#C9A84C"/><text y=".9em" font-size="72" x="14">✂️</text></svg>');
-    const iconType=iconSrc.startsWith('data:image/jpeg')?'image/jpeg':'image/svg+xml';
-    const m={name:nome,short_name:'BC',start_url:'.',display:'standalone',background_color:'#0A0A0A',theme_color:'#C9A84C',icons:[{src:iconSrc,sizes:'256x256',type:iconType}]};
+    const icon='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="#C9A84C"/><text y=".9em" font-size="72" x="14">✂️</text></svg>');
+    const m={name:'Barbearia Ceribelli',short_name:'BC',start_url:'.',display:'standalone',background_color:'#0A0A0A',theme_color:'#C9A84C',icons:[{src:icon,sizes:'any',type:'image/svg+xml'}]};
     const blob=new Blob([JSON.stringify(m)],{type:'application/json'});
     const link=document.createElement('link'); link.rel='manifest'; link.href=URL.createObjectURL(blob);
     document.head.appendChild(link);
@@ -469,15 +462,7 @@ function salvarNotas(v){ state.notas=v; clearTimeout(notasTimer); notasTimer=set
 
 /* ============ IMPORTAR CONTATO DO CELULAR ============ */
 async function importarContato(campoNome, campoTel){
-  const isIOS=/iPhone|iPad/i.test(navigator.userAgent);
-  if(isIOS){
-    alert('📱 No iPhone, use o teclado para buscar contatos:\n\n1. Toque no campo "Nome Completo"\n2. O QuickType (barra acima do teclado) vai sugerir contatos\n3. Toque no nome para preencher automaticamente\n\nOs campos já estão configurados para reconhecer seus contatos!');
-    return;
-  }
-  if(!navigator.contacts||!navigator.contacts.select){
-    alert('Importação direta de contatos não disponível neste navegador.\n\nFunciona no Chrome para Android.');
-    return;
-  }
+  if(!navigator.contacts || !navigator.contacts.select){ alert('Seu navegador não suporta importação de contatos.\n\nEssa função funciona no Chrome mobile (Android) e Safari (iOS 14.5+).'); return; }
   try{
     const [c]=await navigator.contacts.select(['name','tel'],{multiple:false});
     if(!c) return;
@@ -617,9 +602,6 @@ function renderNav(){
       ${ICON[n.ic](20)}
       <span class="lbl-short">${n.l}</span><span class="lbl-full">${n.l}</span>
     </button>`).join('');
-  // Atualizar nome da barbearia na topbar
-  const brandSpan=document.querySelector('#topbar-brand span');
-  if(brandSpan) brandSpan.textContent=state.config.barbearia?.nome||'Barbearia Ceribelli';
 }
 
 /* ============ STATUS ============ */
@@ -1228,9 +1210,9 @@ function modalCliente(id){
   const c=id?state.clientes.find(x=>x.id===id):{nome:'',telefone:'',dataNascimento:'',observacoes:'',bloqueado:false};
   openModal(`
     <div class="modal-head"><h2>${id?'Editar':'Novo'} Cliente</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <div style="margin-bottom:12px"><button class="btn btn-sm" style="width:100%;justify-content:center;gap:6px" onclick="importarContato('c-nome','c-tel')">${/iPhone|iPad/i.test(navigator.userAgent)?'📱 Como usar contatos no iPhone':'📱 Importar do celular'}</button></div>
-    <div class="field"><label class="lbl">Nome Completo</label><input id="c-nome" class="inp" autocomplete="name" value="${esc(c.nome)}" placeholder="Nome do cliente"></div>
-    <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="c-tel" class="inp" type="tel" inputmode="tel" autocomplete="tel" value="${esc(c.telefone)}" placeholder="(11) 99999-9999"></div>
+    <div style="margin-bottom:12px"><button class="btn btn-sm" style="width:100%;justify-content:center;gap:6px" onclick="importarContato('c-nome','c-tel')">📱 Importar do celular</button></div>
+    <div class="field"><label class="lbl">Nome Completo</label><input id="c-nome" class="inp" value="${esc(c.nome)}" placeholder="Nome do cliente"></div>
+    <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="c-tel" class="inp" value="${esc(c.telefone)}" placeholder="(11) 99999-9999"></div>
     <div class="field"><label class="lbl">Data de Nascimento</label><input id="c-nasc" type="date" class="inp" value="${c.dataNascimento||''}"></div>
     <div class="field"><label class="lbl">Observações</label><textarea id="c-obs" class="inp" placeholder="Preferências, alergias...">${esc(c.observacoes)}</textarea></div>
     <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveCliente('${id||''}')">Salvar</button></div>

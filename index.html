@@ -287,13 +287,21 @@ function mostrarLogin(){
 function esconderLogin(){ const el=document.getElementById('login-overlay'); if(el) el.style.display='none'; }
 async function loginGoogle(){
   if(!auth){ alert('Firebase não configurado. Configure as credenciais no código.'); return; }
+  const el=document.getElementById('login-erro');
+  if(el) el.style.display='none';
   try{
     const provider=new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({prompt:'select_account'});
-    // signInWithRedirect funciona corretamente no Safari/PWA do iPhone
-    await auth.signInWithRedirect(provider);
+    const isIOS=/iPhone|iPad/i.test(navigator.userAgent);
+    if(isIOS){
+      // iOS Safari/PWA: usar redirect
+      await auth.signInWithRedirect(provider);
+    } else {
+      // Desktop/Android: usar popup (mais confiável, sem problemas de cookie)
+      await auth.signInWithPopup(provider);
+      // popup já dispara onAuthStateChanged automaticamente
+    }
   }catch(e){
-    const el=document.getElementById('login-erro');
     if(el){ el.textContent='Erro ao entrar: '+e.message; el.style.display='block'; }
   }
 }

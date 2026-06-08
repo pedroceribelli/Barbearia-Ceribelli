@@ -147,11 +147,11 @@
   /* ===== LOGIN ===== */
   #login-overlay{position:fixed;inset:0;z-index:9998;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
   .login-card{background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:36px 28px;width:100%;max-width:360px;text-align:center}
+  .login-card .field{text-align:left}
   .login-logo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
-  .google-btn{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px 20px;border-radius:12px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:14px;font-weight:600;cursor:pointer;margin-top:24px;transition:background .2s}
-  .google-btn:hover{background:var(--border2)}
   .user-chip{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-2);font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;flex-shrink:0}
   .user-chip:hover{background:var(--border)}
+  @media(max-width:400px){.user-chip span:not(.user-role-badge){display:none}.user-chip{padding:5px}}
   .user-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0A0A0A;overflow:hidden;flex-shrink:0}
   .user-avatar img{width:100%;height:100%;object-fit:cover}
   /* ===== PIN ===== */
@@ -225,24 +225,17 @@
     <div class="login-logo">
       <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
     </div>
-    <h1 id="login-title" style="font-size:22px;font-weight:700;margin-bottom:6px">Barbearia Ceribelli</h1>
-    <p style="color:var(--text-2);font-size:13px;margin-bottom:4px">Sistema de Gestão</p>
-    <p style="color:var(--text-3);font-size:11px">Faça login para continuar</p>
-    <div id="trust-info" style="display:none;margin-top:14px;padding:10px 12px;background:var(--inner);border-radius:10px;font-size:11px;color:var(--text-3);text-align:left">
-      <div style="font-weight:600;color:var(--text-2);margin-bottom:3px">Último acesso:</div>
-      <div id="trust-email" style="color:var(--text)"></div>
+    <h1 id="login-title" style="font-size:22px;font-weight:700;margin-bottom:6px">Barbearia</h1>
+    <p style="color:var(--text-2);font-size:13px;margin-bottom:20px">Sistema de Gestão</p>
+    <div class="field"><label class="lbl">E-mail</label>
+      <input id="login-email" class="inp" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()">
     </div>
-    <button class="google-btn" onclick="loginGoogle()">
-      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.96 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
-      Entrar com Google
-    </button>
-    <div style="display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:4px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <span style="font-size:11px;color:var(--text-3)">ou</span>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
+    <div class="field" style="margin-top:10px"><label class="lbl">Senha</label>
+      <input id="login-senha" class="inp" type="password" autocomplete="current-password" placeholder="Sua senha" onkeydown="if(event.key==='Enter')loginComEmail()">
     </div>
-    <button class="btn" style="width:100%;margin-top:8px" onclick="loginComPin()">🔑 Entrar com PIN</button>
-    <p id="login-erro" style="color:var(--red);font-size:12px;margin-top:14px;display:none"></p>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:13px" onclick="loginComEmail()">Entrar</button>
+    <p id="login-erro" style="color:var(--red);font-size:12px;margin-top:12px;display:none"></p>
+    <p style="font-size:11px;color:var(--text-3);margin-top:16px;line-height:1.5">Primeiro acesso? Digite seu e-mail e crie uma senha.<br>Sua conta de dono será criada automaticamente.</p>
   </div>
 </div>
 <div id="pin-overlay"></div>
@@ -250,7 +243,6 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
 <script>
 /* ============ STORAGE (localStorage com fallback em memória) ============ */
@@ -269,112 +261,80 @@ const firebaseConfig = {
   messagingSenderId:"342965780941",
   appId:"1:342965780941:web:2ff83d970fe1331a87c484"
 };
-let db = null, auth = null;
+let db = null;
 try{
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
-  auth = firebase.auth();
-  auth.languageCode = 'pt-BR';
 }catch(e){ console.warn('Firebase init:', e); }
 
-/* ============ AUTH STATE ============ */
-let authUser = null;       // Firebase User
+/* ============ AUTH — EMAIL + SENHA ============ */
 let authRole = null;       // 'dono' | 'barbeiro'
-let authBarbeiroNome = null; // nome do barbeiro logado
+let authBarbeiroNome = null;
+let authEmail = null;
 
-/* ============ AUTENTICAÇÃO GOOGLE ============ */
-function saveDeviceTrust(email, role, barbName, displayName, photoURL){
-  LS.set('bc:device_trust',{email,role,barbName:barbName||null,displayName:displayName||email,photoURL:photoURL||null,expires:Date.now()+30*24*60*60*1000});
-}
-function loadDeviceTrust(){
-  const t=LS.get('bc:device_trust');
-  if(!t||t.expires<Date.now()){ LS.set('bc:device_trust',null); return null; }
-  return t;
-}
-function clearDeviceTrust(){ LS.set('bc:device_trust',null); }
 function mostrarLogin(){
-  const el=document.getElementById('login-overlay'); if(el){el.style.display='flex';}
+  const el=document.getElementById('login-overlay'); if(el) el.style.display='flex';
   const t=document.getElementById('login-title');
   if(t) t.textContent=state.config.barbearia?.nome||'Barbearia';
-  const trust=LS.get('bc:device_trust');
-  const info=document.getElementById('trust-info');
-  const em=document.getElementById('trust-email');
-  if(trust&&trust.email&&info&&em){ info.style.display='block'; em.textContent=trust.email; }
+  // Preencher email se lembrado
+  const last=LS.get('bc:last_email');
+  const ef=document.getElementById('login-email');
+  if(ef&&last) ef.value=last;
 }
 function esconderLogin(){ const el=document.getElementById('login-overlay'); if(el) el.style.display='none'; }
-async function loginGoogle(){
-  if(!auth){ alert('Firebase não configurado. Configure as credenciais no código.'); return; }
-  const el=document.getElementById('login-erro');
-  if(el) el.style.display='none';
-  try{
-    const provider=new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({prompt:'select_account'});
-    const isIOS=/iPhone|iPad/i.test(navigator.userAgent);
-    if(isIOS){
-      // iOS Safari/PWA: usar redirect
-      await auth.signInWithRedirect(provider);
-    } else {
-      // Desktop/Android: usar popup (mais confiável, sem problemas de cookie)
-      await auth.signInWithPopup(provider);
-      // popup já dispara onAuthStateChanged automaticamente
-    }
-  }catch(e){
-    if(el){ el.textContent='Erro ao entrar: '+e.message; el.style.display='block'; }
+
+function loginComEmail(){
+  const email=(document.getElementById('login-email')?.value||'').trim().toLowerCase();
+  const senha=document.getElementById('login-senha')?.value||'';
+  const erro=document.getElementById('login-erro');
+  if(!email||!senha){ if(erro){erro.textContent='Preencha e-mail e senha.';erro.style.display='block';} return; }
+  const usuarios=state.config.usuarios||[];
+  // Primeiro acesso: criar conta dono automaticamente
+  if(usuarios.length===0){
+    const senhaH=hashSenha(senha);
+    state.config.usuarios=[{email,senhaHash:senhaH,role:'dono',nome:'Dono'}];
+    saveConfig();
+    _acessar('dono',null,email);
+    return;
   }
+  const u=usuarios.find(x=>x.email===email&&x.senhaHash===hashSenha(senha));
+  if(!u){ if(erro){erro.textContent='E-mail ou senha incorretos.';erro.style.display='block';} return; }
+  _acessar(u.role,u.role==='barbeiro'?u.nome:null,email);
 }
-async function logout(){ clearDeviceTrust(); if(auth) await auth.signOut(); authUser=null; authRole=null; authBarbeiroNome=null; mostrarLogin(); }
-async function verificarRole(){
-  if(!authUser){ authRole=null; return; }
-  const email=authUser.email;
-  const cfg=state.config;
-  if(!cfg.donos) cfg.donos=[];
-  if(!cfg.barbeirosAuth) cfg.barbeirosAuth=[];
-  if(cfg.donos.length===0&&cfg.barbeirosAuth.length===0){ cfg.donos=[email]; saveConfig(); authRole='dono'; authBarbeiroNome=null; }
-  else if(cfg.donos.includes(email)){ authRole='dono'; authBarbeiroNome=null; }
-  else {
-    const barb=cfg.barbeirosAuth.find(b=>b.email===email);
-    if(barb){ authRole='barbeiro'; authBarbeiroNome=barb.nome; if(typeof agFiltroBarb!=='undefined') agFiltroBarb=barb.nome; }
-    else { authRole='unauthorized'; if(auth) await auth.signOut(); authUser=null; return; }
-  }
-  // Salvar confiança no dispositivo (próximos acessos sem Google)
-  saveDeviceTrust(email,authRole,authBarbeiroNome,authUser.displayName,authUser.photoURL);
+function hashSenha(s){ return btoa(encodeURIComponent(s+':nr-salt-2024')).replace(/=/g,''); }
+function _acessar(role,barbName,email){
+  authRole=role; authBarbeiroNome=barbName||null; authEmail=email;
+  LS.set('bc:last_email',email);
+  LS.set('bc:session_auth',{role,barbName:barbName||null,email,expires:Date.now()+30*24*60*60*1000});
+  if(role==='barbeiro'&&typeof agFiltroBarb!=='undefined') agFiltroBarb=barbName||'';
+  esconderLogin(); render();
 }
+function logout(){ authRole=null; authBarbeiroNome=null; authEmail=null; LS.set('bc:session_auth',null); mostrarLogin(); }
+
 function renderUserChip(){
-  const wrap=document.getElementById('user-chip-wrap'); if(!wrap||!authUser) return;
-  const foto=authUser.photoURL;
-  const nome=authBarbeiroNome||(authUser.displayName||authUser.email||'').split(' ')[0];
+  const wrap=document.getElementById('user-chip-wrap'); if(!wrap||!authRole) return;
+  const nome=authBarbeiroNome||authEmail||'Usuário';
   wrap.innerHTML=`<button class="user-chip" onclick="modalContaUsuario()">
-    <div class="user-avatar">${foto?`<img src="${esc(foto)}" referrerpolicy="no-referrer">`:'<span>'+esc((nome||'U').charAt(0).toUpperCase())+'</span>'}</div>
-    <span style="max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nome)}</span>
-    ${authRole==='barbeiro'?'<span style="font-size:9px;background:var(--amber-bg);color:var(--amber);padding:1px 5px;border-radius:8px">FUNC</span>':''}
+    <div class="user-avatar"><span>${esc((nome).charAt(0).toUpperCase())}</span></div>
+    <span style="max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nome.split(' ')[0])}</span>
+    ${authRole==='barbeiro'?'<span class="user-role-badge" style="font-size:9px;background:var(--amber-bg);color:var(--amber);padding:1px 5px;border-radius:8px">FUNC</span>':''}
   </button>`;
 }
 function modalContaUsuario(){
-  const foto=authUser?.photoURL, nome=authUser?.displayName||authUser?.email, email=authUser?.email||'';
   openModal(`<div class="modal-head"><h2>Minha Conta</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px 0 20px">
-      <div style="width:64px;height:64px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;color:#0A0A0A">
-        ${foto?`<img src="${esc(foto)}" referrerpolicy="no-referrer" style="width:100%;height:100%;object-fit:cover">`:'<span>'+esc((nome||'U').charAt(0).toUpperCase())+'</span>'}
-      </div>
-      <div style="text-align:center"><div style="font-weight:700;font-size:15px">${esc(nome||'')}</div>
-        <div style="font-size:12px;color:var(--text-2);margin-top:3px">${esc(email)}</div>
-        <div style="margin-top:8px"><span style="font-size:11px;padding:3px 12px;border-radius:12px;font-weight:700;${authRole==='dono'?'background:rgba(201,168,76,.15);color:var(--gold)':'background:var(--amber-bg);color:var(--amber)'}">${authRole==='dono'?'👑 Dono':'✂️ Funcionário'}</span></div>
-      </div>
+    <div style="text-align:center;padding:16px 0 20px">
+      <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#0A0A0A;margin:0 auto 12px">${esc((authBarbeiroNome||authEmail||'U').charAt(0).toUpperCase())}</div>
+      <div style="font-weight:700;font-size:15px">${esc(authBarbeiroNome||authEmail||'')}</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:4px">${esc(authEmail||'')}</div>
+      <div style="margin-top:10px"><span style="font-size:11px;padding:3px 12px;border-radius:12px;font-weight:700;${authRole==='dono'?'background:rgba(201,168,76,.15);color:var(--gold)':'background:var(--amber-bg);color:var(--amber)'}">${authRole==='dono'?'👑 Dono':'✂️ Funcionário'}</span></div>
     </div>
-    <div class="modal-foot"><button class="btn btn-red" onclick="closeModal();logout()">Sair da conta</button><button class="btn" onclick="closeModal()">Fechar</button></div>`);
+    <div class="modal-foot"><button class="btn btn-red" onclick="closeModal();logout()">Sair</button><button class="btn" onclick="closeModal()">Fechar</button></div>`);
 }
 let notifStarted=false;
-function startNotificacoes(){ if(notifStarted) return; notifStarted=true; startNotificacoes(); }
+function startNotificacoes(){ if(notifStarted) return; notifStarted=true; verificarNotificacoes(); setInterval(verificarNotificacoes,60000); }
+const VIEWS_BARB=['agenda'];
 const NAV_BARB=[{id:'agenda',ic:'calendar',l:'Agenda'}];
-const isDono=()=>authRole==='dono'||!auth||authPinBypass;
-let authPinBypass=false;
-function loginComPin(){
-  authPinBypass=true;
-  authRole='dono';
-  authUser=null;
-  esconderLogin();
-  render();
-}
+const isDono=()=>authRole==='dono'||!authRole;
 
 /* ============ SUPABASE (NUVEM ALTERNATIVA — opcional) ============ */
 // Após criar sua conta no supabase.com, cole aqui o URL e a chave anon do seu projeto:
@@ -510,8 +470,7 @@ function migrarDados(){
   if(!Array.isArray(state.pacotes)) state.pacotes = [];
   if(!c.msgPacoteRenovado) c.msgPacoteRenovado='Olá {nome}! 🎉 Seu pacote *{pacote}* do mês de {mes} foi renovado com sucesso!\n💈 Valor: {valor}\nObrigado pela confiança! Qualquer dúvida é só chamar. ✂️';
   if(!c.comissoesPagasAte) c.comissoesPagasAte={};
-  if(!c.donos) c.donos=[];
-  if(!c.barbeirosAuth) c.barbeirosAuth=[];
+  if(!Array.isArray(c.usuarios)) c.usuarios=[];
 }
 
 /* ============ ÍCONES ============ */
@@ -776,7 +735,7 @@ const ST_LBL={agendado:'Agendado',concluido:'Concluído',cancelado:'Cancelado'};
 function render(){
   try{
     // Se Firebase tem auth e usuário não está logado → mostrar login
-    if(auth && !authUser && !authPinBypass){ mostrarLogin(); return; }
+    if(!authRole){ mostrarLogin(); return; }
     esconderLogin();
     const overlay=document.getElementById('pin-overlay');
     if(isDono()&&pinRequired()){
@@ -1894,28 +1853,21 @@ function viewConfig(){
       <p style="font-size:11px;color:var(--text-3);margin-top:5px">Barbearia Ceribelli Management System</p>
     </div>
     <div class="card" style="margin-top:14px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:12px">🔐 Controle de Acesso</div>
-      <div style="font-size:11px;color:var(--text-3);margin-bottom:10px">E-mails do Google com acesso ao sistema. Dono = acesso total. Funcionário = somente Agenda.</div>
-      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">👑 Donos</div>
-      ${(cfg.donos||[]).map((email,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--inner);border-radius:8px;margin-bottom:6px">
-        <span style="font-size:12px">${esc(email)}</span>
-        ${(cfg.donos||[]).length>1?`<button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:10px" onclick="cfg_delDono(${i})">Remover</button>`:'<span style="font-size:10px;color:var(--text-3)">Principal</span>'}
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">🔐 Usuários do Sistema</div>
+      <div style="font-size:11px;color:var(--text-3);margin-bottom:12px">Gerencie quem tem acesso. Dono = acesso total. Funcionário = somente Agenda.</div>
+      ${(cfg.usuarios||[]).map((u,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--inner);border-radius:8px;margin-bottom:6px">
+        <div><div style="font-size:12px;font-weight:600">${esc(u.nome||u.email)}</div>
+          <div style="font-size:11px;color:var(--text-3)">${esc(u.email)} · ${u.role==='dono'?'👑 Dono':'✂️ Funcionário'}</div></div>
+        ${u.role!=='dono'?`<button class="btn btn-red btn-sm" style="font-size:10px" onclick="cfg_delUsuario(${i})">Remover</button>`:'<span style="font-size:10px;color:var(--text-3)">Principal</span>'}
       </div>`).join('')}
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input id="novo-dono-email" class="inp" placeholder="email@gmail.com" style="font-size:12px">
-        <button class="btn btn-sm" style="white-space:nowrap" onclick="cfg_addDono()">+ Adicionar</button>
+      <div style="margin-top:12px;padding:12px;background:var(--inner);border-radius:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:8px">+ Adicionar Funcionário</div>
+        <div class="field"><input id="nu-nome" class="inp" placeholder="Nome" style="font-size:12px"></div>
+        <div class="field" style="margin-top:6px"><input id="nu-email" class="inp" type="email" placeholder="email@exemplo.com" style="font-size:12px"></div>
+        <div class="field" style="margin-top:6px"><input id="nu-senha" class="inp" type="password" placeholder="Senha de acesso" style="font-size:12px"></div>
+        <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="cfg_addUsuario()">Adicionar</button>
       </div>
-      <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">✂️ Funcionários</div>
-      ${(cfg.barbeirosAuth||[]).map((b,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--inner);border-radius:8px;margin-bottom:6px">
-        <div><div style="font-size:12px;font-weight:600">${esc(b.nome)}</div><div style="font-size:11px;color:var(--text-3)">${esc(b.email)}</div></div>
-        <button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:10px" onclick="cfg_delBarbeiroAuth(${i})">Remover</button>
-      </div>`).join('')}
-      <div style="display:flex;flex-direction:column;gap:6px">
-        <input id="novo-func-nome" class="inp" placeholder="Nome do funcionário" style="font-size:12px">
-        <input id="novo-func-email" class="inp" placeholder="email@gmail.com" style="font-size:12px">
-        <button class="btn btn-sm" onclick="cfg_addBarbeiroAuth()">+ Adicionar Funcionário</button>
-      </div>
-    </div>`;
+    </div>
   } else if(cfgTab==='taxas'){
     body=`<div class="card">
       <h3 style="font-size:14px;margin-bottom:12px">Taxas da Maquininha</h3>
@@ -2074,10 +2026,18 @@ function lancarDespesasFixas(){
   save('lancamentos'); render();
   alert(`✅ ${novas.length} despesa(s) lançadas para ${mes}.`);
 }
-function cfg_addDono(){ const v=document.getElementById('novo-dono-email')?.value.trim(); if(!v||!v.includes('@')){ alert('Digite um email válido.'); return; } if(!state.config.donos) state.config.donos=[]; if(state.config.donos.includes(v)){ alert('Email já cadastrado.'); return; } state.config.donos.push(v); saveConfig(); render(); }
-function cfg_delDono(i){ state.config.donos.splice(i,1); saveConfig(); render(); }
-function cfg_addBarbeiroAuth(){ const nome=document.getElementById('novo-func-nome')?.value.trim(); const email=document.getElementById('novo-func-email')?.value.trim(); if(!nome||!email||!email.includes('@')){ alert('Preencha nome e email válido.'); return; } if(!state.config.barbeirosAuth) state.config.barbeirosAuth=[]; if(state.config.barbeirosAuth.some(b=>b.email===email)){ alert('Email já cadastrado.'); return; } state.config.barbeirosAuth.push({nome,email}); saveConfig(); render(); }
-function cfg_delBarbeiroAuth(i){ state.config.barbeirosAuth.splice(i,1); saveConfig(); render(); }
+function cfg_addUsuario(){
+  const nome=document.getElementById('nu-nome')?.value.trim();
+  const email=document.getElementById('nu-email')?.value.trim().toLowerCase();
+  const senha=document.getElementById('nu-senha')?.value;
+  if(!nome||!email||!senha||!email.includes('@')){ setCloudStatus('Preencha nome, e-mail e senha válidos.','#EF4444'); return; }
+  if(!state.config.usuarios) state.config.usuarios=[];
+  if(state.config.usuarios.some(u=>u.email===email)){ setCloudStatus('E-mail já cadastrado.','#EF4444'); return; }
+  state.config.usuarios.push({email,senhaHash:hashSenha(senha),role:'barbeiro',nome});
+  saveConfig(); render();
+  setCloudStatus('Funcionário adicionado!','#22C55E');
+}
+function cfg_delUsuario(i){ state.config.usuarios.splice(i,1); saveConfig(); render(); }
 function cfg_set(path,v){ const k=path.split('.'); let o=state.config; for(let i=0;i<k.length-1;i++)o=o[k[i]]; o[k[k.length-1]]=v; saveConfig(); }
 function cfg_setNum(k,v){ state.config[k]=parseFloat(v)||0; saveConfig(); }
 function cfg_addArr(key,inp){ const v=inp.value.trim(); if(v){ state.config[key].push(v); saveConfig(); render(); } }
@@ -2212,46 +2172,16 @@ async function boot(){
   applyTema();
   const viewEl=document.getElementById('view');
   if(viewEl) viewEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite"></div><p style="font-size:13px;color:var(--text-3)">Carregando...</p></div>`;
-
-  // 1. Verificar se este dispositivo já é confiável (Google feito antes)
-  const trust=loadDeviceTrust();
-  if(trust){
-    authRole=trust.role;
-    authBarbeiroNome=trust.barbName||null;
-    authUser={email:trust.email,displayName:trust.displayName||trust.email,photoURL:trust.photoURL||null};
-    if(typeof agFiltroBarb!=='undefined'&&authRole==='barbeiro'&&trust.barbName) agFiltroBarb=trust.barbName;
-    await carregarDados();
-    migrarDados();
-    esconderLogin();
-    render(); // mostra PIN se configurado, senão entra direto
-    startNotificacoes();
-    // Re-verificar role em background (silencioso — garante que acesso não foi revogado)
-    if(auth) auth.onAuthStateChanged(async user=>{ if(user){ authUser=user; await verificarRole(); } });
-    return;
+  // Verificar sessão salva (válida por 30 dias)
+  const sess=LS.get('bc:session_auth');
+  if(sess&&sess.expires>Date.now()&&sess.role){
+    authRole=sess.role; authBarbeiroNome=sess.barbName||null; authEmail=sess.email||null;
+    if(authRole==='barbeiro'&&typeof agFiltroBarb!=='undefined') agFiltroBarb=authBarbeiroNome||'';
   }
-
-  // 2. Sem confiança — precisa do Google
-  if(auth){
-    try{
-      const result=await auth.getRedirectResult();
-      if(result&&result.user){
-        authUser=result.user;
-        await carregarDados(); migrarDados(); await verificarRole();
-        if(authRole!=='unauthorized'){ esconderLogin(); render(); startNotificacoes(); return; }
-        mostrarLogin(); return;
-      }
-    }catch(e){ console.warn('redirect result:',e); }
-    auth.onAuthStateChanged(async user=>{
-      authUser=user;
-      if(user){
-        await carregarDados(); migrarDados(); await verificarRole();
-        if(authRole==='unauthorized'){ mostrarLogin(); return; }
-        esconderLogin(); render(); startNotificacoes();
-      } else { mostrarLogin(); }
-    });
-  } else {
-    await carregarDados(); render(); startNotificacoes();
-  }
+  await carregarDados();
+  migrarDados();
+  render();
+  startNotificacoes();
 }
 boot();
 window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); } });

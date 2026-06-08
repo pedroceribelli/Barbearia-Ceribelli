@@ -228,6 +228,10 @@
     <h1 id="login-title" style="font-size:22px;font-weight:700;margin-bottom:6px">Barbearia Ceribelli</h1>
     <p style="color:var(--text-2);font-size:13px;margin-bottom:4px">Sistema de Gestão</p>
     <p style="color:var(--text-3);font-size:11px">Faça login para continuar</p>
+    <div id="trust-info" style="display:none;margin-top:14px;padding:10px 12px;background:var(--inner);border-radius:10px;font-size:11px;color:var(--text-3);text-align:left">
+      <div style="font-weight:600;color:var(--text-2);margin-bottom:3px">Último acesso:</div>
+      <div id="trust-email" style="color:var(--text)"></div>
+    </div>
     <button class="google-btn" onclick="loginGoogle()">
       <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.96 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
       Entrar com Google
@@ -279,10 +283,23 @@ let authRole = null;       // 'dono' | 'barbeiro'
 let authBarbeiroNome = null; // nome do barbeiro logado
 
 /* ============ AUTENTICAÇÃO GOOGLE ============ */
+function saveDeviceTrust(email, role, barbName, displayName, photoURL){
+  LS.set('bc:device_trust',{email,role,barbName:barbName||null,displayName:displayName||email,photoURL:photoURL||null,expires:Date.now()+30*24*60*60*1000});
+}
+function loadDeviceTrust(){
+  const t=LS.get('bc:device_trust');
+  if(!t||t.expires<Date.now()){ LS.set('bc:device_trust',null); return null; }
+  return t;
+}
+function clearDeviceTrust(){ LS.set('bc:device_trust',null); }
 function mostrarLogin(){
   const el=document.getElementById('login-overlay'); if(el){el.style.display='flex';}
   const t=document.getElementById('login-title');
   if(t) t.textContent=state.config.barbearia?.nome||'Barbearia';
+  const trust=LS.get('bc:device_trust');
+  const info=document.getElementById('trust-info');
+  const em=document.getElementById('trust-email');
+  if(trust&&trust.email&&info&&em){ info.style.display='block'; em.textContent=trust.email; }
 }
 function esconderLogin(){ const el=document.getElementById('login-overlay'); if(el) el.style.display='none'; }
 async function loginGoogle(){
@@ -305,21 +322,22 @@ async function loginGoogle(){
     if(el){ el.textContent='Erro ao entrar: '+e.message; el.style.display='block'; }
   }
 }
-async function logout(){ if(auth) await auth.signOut(); authUser=null; authRole=null; authBarbeiroNome=null; mostrarLogin(); }
+async function logout(){ clearDeviceTrust(); if(auth) await auth.signOut(); authUser=null; authRole=null; authBarbeiroNome=null; mostrarLogin(); }
 async function verificarRole(){
   if(!authUser){ authRole=null; return; }
   const email=authUser.email;
   const cfg=state.config;
   if(!cfg.donos) cfg.donos=[];
   if(!cfg.barbeirosAuth) cfg.barbeirosAuth=[];
-  if(cfg.donos.length===0&&cfg.barbeirosAuth.length===0){ cfg.donos=[email]; saveConfig(); authRole='dono'; authBarbeiroNome=null; return; }
-  if(cfg.donos.includes(email)){ authRole='dono'; authBarbeiroNome=null; return; }
-  const barb=cfg.barbeirosAuth.find(b=>b.email===email);
-  if(barb){ authRole='barbeiro'; authBarbeiroNome=barb.nome; agFiltroBarb=barb.nome; return; }
-  authRole='unauthorized';
-  const el=document.getElementById('login-erro');
-  if(el){ el.textContent='Acesso não autorizado. Solicite ao dono do sistema.'; el.style.display='block'; }
-  if(auth) await auth.signOut(); authUser=null;
+  if(cfg.donos.length===0&&cfg.barbeirosAuth.length===0){ cfg.donos=[email]; saveConfig(); authRole='dono'; authBarbeiroNome=null; }
+  else if(cfg.donos.includes(email)){ authRole='dono'; authBarbeiroNome=null; }
+  else {
+    const barb=cfg.barbeirosAuth.find(b=>b.email===email);
+    if(barb){ authRole='barbeiro'; authBarbeiroNome=barb.nome; if(typeof agFiltroBarb!=='undefined') agFiltroBarb=barb.nome; }
+    else { authRole='unauthorized'; if(auth) await auth.signOut(); authUser=null; return; }
+  }
+  // Salvar confiança no dispositivo (próximos acessos sem Google)
+  saveDeviceTrust(email,authRole,authBarbeiroNome,authUser.displayName,authUser.photoURL);
 }
 function renderUserChip(){
   const wrap=document.getElementById('user-chip-wrap'); if(!wrap||!authUser) return;
@@ -2194,40 +2212,45 @@ async function boot(){
   applyTema();
   const viewEl=document.getElementById('view');
   if(viewEl) viewEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite"></div><p style="font-size:13px;color:var(--text-3)">Carregando...</p></div>`;
+
+  // 1. Verificar se este dispositivo já é confiável (Google feito antes)
+  const trust=loadDeviceTrust();
+  if(trust){
+    authRole=trust.role;
+    authBarbeiroNome=trust.barbName||null;
+    authUser={email:trust.email,displayName:trust.displayName||trust.email,photoURL:trust.photoURL||null};
+    if(typeof agFiltroBarb!=='undefined'&&authRole==='barbeiro'&&trust.barbName) agFiltroBarb=trust.barbName;
+    await carregarDados();
+    migrarDados();
+    esconderLogin();
+    render(); // mostra PIN se configurado, senão entra direto
+    startNotificacoes();
+    // Re-verificar role em background (silencioso — garante que acesso não foi revogado)
+    if(auth) auth.onAuthStateChanged(async user=>{ if(user){ authUser=user; await verificarRole(); } });
+    return;
+  }
+
+  // 2. Sem confiança — precisa do Google
   if(auth){
     try{
-      // Aguarda resultado do redirect (pode ter voltado do Google agora)
-      const result = await auth.getRedirectResult();
-      if(result && result.user){
-        authUser = result.user;
-        await carregarDados();
-        migrarDados();
-        await verificarRole();
-        if(authRole!=='unauthorized'){
-          esconderLogin(); render();
-          startNotificacoes();
-          return;
-        }
+      const result=await auth.getRedirectResult();
+      if(result&&result.user){
+        authUser=result.user;
+        await carregarDados(); migrarDados(); await verificarRole();
+        if(authRole!=='unauthorized'){ esconderLogin(); render(); startNotificacoes(); return; }
         mostrarLogin(); return;
       }
     }catch(e){ console.warn('redirect result:',e); }
-    // Nenhum redirect pendente — usar estado normal de auth
     auth.onAuthStateChanged(async user=>{
       authUser=user;
       if(user){
         await carregarDados(); migrarDados(); await verificarRole();
         if(authRole==='unauthorized'){ mostrarLogin(); return; }
-        esconderLogin(); render();
-        startNotificacoes();
-      } else {
-        mostrarLogin();
-      }
+        esconderLogin(); render(); startNotificacoes();
+      } else { mostrarLogin(); }
     });
   } else {
-    // Sem Firebase — modo local, sem auth
-    await carregarDados();
-    render();
-    startNotificacoes();
+    await carregarDados(); render(); startNotificacoes();
   }
 }
 boot();

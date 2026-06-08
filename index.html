@@ -284,7 +284,8 @@ async function loginGoogle(){
   try{
     const provider=new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({prompt:'select_account'});
-    await auth.signInWithPopup(provider);
+    // signInWithRedirect funciona corretamente no Safari/PWA do iPhone
+    await auth.signInWithRedirect(provider);
   }catch(e){
     const el=document.getElementById('login-erro');
     if(el){ el.textContent='Erro ao entrar: '+e.message; el.style.display='block'; }
@@ -2150,6 +2151,8 @@ async function boot(){
   const viewEl=document.getElementById('view');
   if(viewEl) viewEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite"></div><p style="font-size:13px;color:var(--text-3)">Carregando...</p></div>`;
   if(auth){
+    // Verificar se voltou de um redirect de login
+    auth.getRedirectResult().catch(e=>console.warn('redirect result:',e));
     // Firebase com Auth — esperar estado do usuário
     auth.onAuthStateChanged(async user=>{
       authUser=user;

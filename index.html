@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BC Ceribelli">
-<link rel="apple-touch-icon" sizes="512x512" href="icon.jpg">
-<link rel="icon" type="image/jpeg" href="icon.jpg">
+<link rel="apple-touch-icon" sizes="512x512" href="Ceribelli_Icone.jpg">
+<link rel="icon" type="image/jpeg" href="Ceribelli_Icone.jpg">
 <title>Barbearia Ceribelli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -114,6 +114,8 @@
   .empty{text-align:center;padding:48px;color:var(--text-3)}
   .empty p{margin:12px 0 16px;font-size:14px}
   .list-item{margin-bottom:10px}
+  .list-item:last-child{margin-bottom:0}
+  .empty p+p{font-size:12px;color:var(--text-3);margin-top:-6px;margin-bottom:12px}
   .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
   .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--inner);border:1px solid var(--border);border-radius:20px;font-size:12px}
   .chip button{background:none;border:none;color:var(--red);font-size:14px;line-height:1;padding:0}
@@ -172,6 +174,7 @@
     #topbar .brand span{font-size:15px}
     .row2{grid-template-columns:1fr}
     .row3{grid-template-columns:1fr 1fr 1fr}
+    @media(max-width:360px){.row3{grid-template-columns:1fr 1fr}}
     #view{padding:14px}
     .sec-head{flex-direction:column;align-items:stretch}
     .sec-head .btn-primary{align-self:flex-start}
@@ -325,7 +328,7 @@ function weekDays(refISO){
   const arr=[]; for(let i=0;i<7;i++){ const x=new Date(seg); x.setDate(seg.getDate()+i); arr.push(toISO(x)); }
   return arr;
 }
-function countAgDia(iso){ return state.agendamentos.filter(a=>a.data===iso && a.status!=='cancelado').length; }
+function countAgDia(iso){ return state.agendamentos.filter(a=>a.data===iso && a.status!=='cancelado' && (!agFiltroBarb||a.barbeiro===agFiltroBarb)).length; }
 function demandaBg(n){ if(n===0)return 'transparent'; if(n<=2)return 'rgba(201,168,76,0.15)'; if(n<=4)return 'rgba(201,168,76,0.40)'; return 'rgba(201,168,76,0.68)'; }
 function weekStrip(){
   const dias=weekDays(agFiltro); const nomes=['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
@@ -368,6 +371,7 @@ function migrarDados(){
   if(c.pinHash===undefined) c.pinHash = '';
   if(!Array.isArray(state.pacotes)) state.pacotes = [];
   if(!c.msgPacoteRenovado) c.msgPacoteRenovado='Olá {nome}! 🎉 Seu pacote *{pacote}* do mês de {mes} foi renovado com sucesso!\n💈 Valor: {valor}\nObrigado pela confiança! Qualquer dúvida é só chamar. ✂️';
+  if(!c.comissoesPagasAte) c.comissoesPagasAte={};
 }
 
 /* ============ ÍCONES ============ */
@@ -726,20 +730,34 @@ function viewDashboard(){
 let agFiltro = todayStr();
 let agModo='novo';
 let agFiltroBarb='', agFiltroStatus='';
+function verAgendaBarbeiro(nome){ agFiltroBarb=nome; agFiltro=todayStr(); setView('agenda'); }
 function viewAgenda(){
+  const barbsConfig=state.config.barbeiros||[];
   let lista=state.agendamentos.filter(a=>!agFiltro||a.data===agFiltro);
   if(agFiltroBarb) lista=lista.filter(a=>a.barbeiro===agFiltroBarb);
   if(agFiltroStatus) lista=lista.filter(a=>a.status===agFiltroStatus);
   lista.sort((a,b)=>a.hora>b.hora?1:-1);
-  const barbs=[...new Set(state.agendamentos.map(a=>a.barbeiro).filter(Boolean))];
-  const filtroDesc = [agFiltroBarb?`barbeiro: ${agFiltroBarb}`:'', agFiltroStatus?`status: ${ST_LBL[agFiltroStatus]||agFiltroStatus}`:''  ].filter(Boolean).join(' · ');
+  const filtroDesc=[agFiltroBarb?`${agFiltroBarb}`:'',agFiltroStatus?`${ST_LBL[agFiltroStatus]||agFiltroStatus}`:''].filter(Boolean).join(' · ');
+  // abas de barbeiro — conta agendados+concluidos do dia por barbeiro
+  const barbTabsHTML=barbsConfig.length>1?`
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
+      <button class="btn btn-sm ${!agFiltroBarb?'btn-primary':''}" style="flex-shrink:0" onclick="agFiltroBarb='';render()">
+        Todos <span style="font-size:10px;opacity:.75">(${state.agendamentos.filter(a=>a.data===agFiltro&&a.status!=='cancelado').length})</span>
+      </button>
+      ${barbsConfig.map(b=>{
+        const cnt=state.agendamentos.filter(a=>a.data===agFiltro&&a.barbeiro===b&&a.status!=='cancelado').length;
+        return `<button class="btn btn-sm ${agFiltroBarb===b?'btn-primary':''}" style="flex-shrink:0" onclick="agFiltroBarb='${esc(b)}';render()">
+          ${esc(b)}${cnt>0?` <span style="font-size:10px;opacity:.75">(${cnt})</span>`:''}
+        </button>`;
+      }).join('')}
+    </div>`:'';
   return `
-    <div class="sec-head"><div><h1>Agenda</h1><p>${lista.length} agendamento(s)${filtroDesc?' — '+filtroDesc:''}</p></div>
-      <button class="btn btn-primary" onclick="modalAgenda()">+ Novo Agendamento</button></div>
+    <div class="sec-head" style="margin-bottom:10px"><div><h1>Agenda${filtroDesc?' — '+filtroDesc:''}</h1><p>${lista.length} agendamento(s) · ${fmtDate(agFiltro)}</p></div>
+      <button class="btn btn-primary" onclick="modalAgenda()">+ Novo</button></div>
     ${weekStrip()}
+    ${barbTabsHTML}
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <input type="date" class="inp" style="flex:1;min-width:140px" value="${agFiltro}" onchange="agFiltro=this.value;render()">
-      ${barbs.length>1?`<select class="inp" style="flex:1;min-width:120px" onchange="agFiltroBarb=this.value;render()"><option value="">Todos barbeiros</option>${barbs.map(b=>`<option value="${esc(b)}" ${agFiltroBarb===b?'selected':''}>${esc(b)}</option>`).join('')}</select>`:''}
       <select class="inp" style="flex:1;min-width:120px" onchange="agFiltroStatus=this.value;render()"><option value="">Todos status</option>${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${agFiltroStatus===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select>
     </div>
     ${lista.length?lista.map(a=>`<div class="card list-item" style="padding:15px">
@@ -1290,7 +1308,8 @@ function viewBarbeiros(){
     </div>
     ${barbs.length?barbs.map(b=>{
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-      const agsPag=ags.filter(a=>!a.ePacote);
+      const ultimoPagto=(state.config.comissoesPagasAte||{})[b]||'';
+      const agsPag=ags.filter(a=>!a.ePacote&&(!ultimoPagto||a.data>ultimoPagto));
       const agsPac=ags.filter(a=>a.ePacote);
       const receita=agsPag.reduce((s,a)=>{ const l=state.lancamentos.find(x=>x.id===a.lancamentoId); return s+(l?(l.valor||0):0); },0);
       const pct=parseFloat(com[b])||0;
@@ -1304,9 +1323,9 @@ function viewBarbeiros(){
           </div>
           <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--green)">${fmtMoney(receita)}</div><div style="font-size:10px;color:var(--text-3)">receita bruta</div></div>
         </div>
-        ${agsPac.length?`<div style="padding:8px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px">📦 +${agsPac.length} atendimento(s) de pacote — sem lançamento financeiro individual</div>`:''}
+        ${agsPac.length?`<div style="padding:7px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px">📦 +${agsPac.length} atendimento(s) de pacote — sem comissão individual</div>`:''}
         ${Object.keys(byServico).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${Object.entries(byServico).map(([s,n])=>`<span style="padding:3px 10px;background:var(--inner);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text-2)">${esc(s)}: <strong>${n}x</strong></span>`).join('')}</div>`:''}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
           <div style="padding:10px;background:var(--inner);border-radius:8px;text-align:center">
             <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">% Comissão</div>
             <div style="font-size:16px;font-weight:700;color:var(--gold)">${pct}%</div>
@@ -1316,8 +1335,11 @@ function viewBarbeiros(){
             <div style="font-size:16px;font-weight:700;color:${comissao>0?'var(--amber)':'var(--text-3)'}">${fmtMoney(comissao)}</div>
           </div>
         </div>
+        ${ultimoPagto?`<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:4px">Último pagamento: ${fmtDate(ultimoPagto)}</div>`:''}
         ${pct===0?`<p style="font-size:11px;color:var(--text-3);margin-top:8px;text-align:center">Configure o % em Config → Financeiro</p>`:''}
         ${ags.length===0?`<p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px">Nenhum serviço concluído neste período</p>`:''}
+        ${comissao>0?`<button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="pagarComissao('${esc(b)}',${comissao})">💰 Pagar comissão — ${fmtMoney(comissao)}</button>`:(pct>0?`<p style="font-size:12px;color:var(--green);text-align:center;margin-top:8px">✅ Comissão em dia</p>`:'')}
+        <button class="btn" style="width:100%;margin-top:8px" onclick="verAgendaBarbeiro('${esc(b)}')">📅 Ver Agenda de ${esc(b)}</button>
       </div>`;
     }).join(''):`<div class="card empty">${ICON.cut(36,'#252525')}<p>Nenhum barbeiro cadastrado</p><button class="btn btn-primary" onclick="cfgTab='barbearia';setView('configuracoes')">Cadastrar Barbeiro</button></div>`}`;
 }
@@ -1430,7 +1452,35 @@ function savePacote(id){
   save('pacotes'); closeModal(); render();
 }
 
-/* ============ FINANCEIRO ============ */
+function modalPagarComissao(barbeiro, valor){
+  if(valor<=0){ return; }
+  openModal(`
+    <div class="modal-head"><h2>Pagar Comissão</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="text-align:center;padding:18px 0 10px">
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Comissão pendente</div>
+      <div style="font-size:32px;font-weight:700;color:var(--gold);margin-bottom:6px">${fmtMoney(valor)}</div>
+      <div style="font-size:14px;font-weight:700">${esc(barbeiro)}</div>
+    </div>
+    <div style="padding:12px 14px;background:var(--inner);border-radius:8px;font-size:12px;color:var(--text-2);margin:12px 0;text-align:center;line-height:1.6">
+      Uma saída de <strong>${fmtMoney(valor)}</strong> será criada no Financeiro.<br>
+      A comissão acumulada até hoje será zerada.
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmarPagtoComissao('${esc(barbeiro)}',${valor})">💰 Confirmar pagamento</button>
+    </div>
+  `);
+}
+function confirmarPagtoComissao(barbeiro, valor){
+  if(!state.config.comissoesPagasAte) state.config.comissoesPagasAte={};
+  state.config.comissoesPagasAte[barbeiro]=todayStr();
+  saveConfig();
+  state.lancamentos.push({id:uid(),tipo:'saida',descricao:`Comissão — ${barbeiro}`,categoria:'Comissão',valor:parseFloat(valor),valorLiquido:parseFloat(valor),formaPagamento:'dinheiro',data:todayStr(),origem:'comissao',barbeiro:barbeiro,createdAt:Date.now()});
+  save('lancamentos');
+  closeModal();
+  render();
+}
+function pagarComissao(barbeiro, valor){ modalPagarComissao(barbeiro, valor); }
 let finFiltro=todayStr(), finModo='mes';
 const FP_COLOR={pix:'#10B981',dinheiro:'#3B82F6',debito:'#8B5CF6',credito:'#F59E0B'};
 const CATS=['Serviço','Produto','Aluguel','Material','Salário','Outros'];
@@ -1482,8 +1532,12 @@ function viewFinanceiro(){
         <button class="btn btn-sm" onclick="finFiltro='${navDate(1)}';render()">›</button>
       </div>`:`<div style="margin-bottom:14px;font-size:13px;font-weight:600;color:var(--gold)">${periodoLabel()}</div>`}
     <div class="row3" style="margin-bottom:16px">
-      ${[{l:'Entradas',v:fmtMoney(ent),c:'var(--green)',bg:'var(--green-bg)'},{l:'Saídas',v:fmtMoney(sai),c:'var(--red)',bg:'var(--red-bg)'},{l:'Saldo',v:fmtMoney(saldo),c:saldo>=0?'var(--green)':'var(--red)',bg:saldo>=0?'var(--green-bg)':'var(--red-bg)'}].map(c=>
-        `<div style="background:${c.bg};border:1px solid ${c.c}30;border-radius:10px;padding:12px;text-align:center">
+      ${[
+        {l:'Entradas',v:fmtMoney(ent),c:'var(--green)',bg:'var(--green-bg)',bo:'rgba(34,197,94,.25)'},
+        {l:'Saídas',v:fmtMoney(sai),c:'var(--red)',bg:'var(--red-bg)',bo:'rgba(239,68,68,.25)'},
+        {l:'Saldo',v:fmtMoney(saldo),c:saldo>=0?'var(--green)':'var(--red)',bg:saldo>=0?'var(--green-bg)':'var(--red-bg)',bo:saldo>=0?'rgba(34,197,94,.25)':'rgba(239,68,68,.25)'}
+      ].map(c=>
+        `<div style="background:${c.bg};border:1px solid ${c.bo};border-radius:10px;padding:12px;text-align:center">
           <div style="font-size:14px;font-weight:700;color:${c.c}">${c.v}</div>
           <div style="font-size:10px;color:${c.c};opacity:.7;margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.l}</div>
         </div>`).join('')}
@@ -1509,7 +1563,22 @@ function viewFinanceiro(){
       Total geral (todos os períodos) — Entradas: <strong style="color:var(--green)">${fmtMoney(entAll)}</strong> · Saídas: <strong style="color:var(--red)">${fmtMoney(saiAll)}</strong> · Saldo: <strong style="color:${entAll-saiAll>=0?'var(--green)':'var(--red)'}">${fmtMoney(entAll-saiAll)}</strong>
     </div>`:''}`;
 }
-function delLanc(id){ if(confirm('Remover lançamento?')){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); render(); } }
+function delLanc(id){
+  const l=state.lancamentos.find(x=>x.id===id); if(!l) return;
+  openModal(`
+    <div class="modal-head"><h2>Remover Lançamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <p style="font-size:13px;color:var(--text-2);margin-bottom:6px">Deseja remover este lançamento?</p>
+    <div style="padding:12px 14px;background:var(--inner);border-radius:8px;margin-bottom:18px">
+      <div style="font-weight:600;font-size:13px">${esc(l.descricao)}</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:4px">${l.tipo==='entrada'?'+':'−'}${fmtMoney(l.valor)} · ${fmtDate(l.data)}</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-red" onclick="confirmarDelLanc('${id}')">Remover</button>
+    </div>
+  `);
+}
+function confirmarDelLanc(id){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); closeModal(); render(); }
 let lancTmp={tipo:'entrada',formaPagamento:'pix'};
 function modalLanc(){
   lancTmp={tipo:'entrada',formaPagamento:'pix'};

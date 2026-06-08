@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BC Ceribelli">
-<link rel="apple-touch-icon" sizes="512x512" href="Ceribelli_Icone.jpg">
-<link rel="icon" type="image/jpeg" href="Ceribelli_Icone.jpg">
+<link rel="apple-touch-icon" sizes="512x512" href="icon.jpg">
+<link rel="icon" type="image/jpeg" href="icon.jpg">
 <title>Barbearia Ceribelli</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -114,8 +114,6 @@
   .empty{text-align:center;padding:48px;color:var(--text-3)}
   .empty p{margin:12px 0 16px;font-size:14px}
   .list-item{margin-bottom:10px}
-  .list-item:last-child{margin-bottom:0}
-  .empty p+p{font-size:12px;color:var(--text-3);margin-top:-6px;margin-bottom:12px}
   .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
   .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--inner);border:1px solid var(--border);border-radius:20px;font-size:12px}
   .chip button{background:none;border:none;color:var(--red);font-size:14px;line-height:1;padding:0}
@@ -144,16 +142,6 @@
   .tab.active{background:var(--card);color:var(--gold)}
 
   @keyframes spin{to{transform:rotate(360deg)}}
-  /* ===== LOGIN ===== */
-  #login-overlay{position:fixed;inset:0;z-index:9998;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-  .login-card{background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:36px 28px;width:100%;max-width:360px;text-align:center}
-  .login-card .field{text-align:left}
-  .login-logo{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
-  .user-chip{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 5px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-2);font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;flex-shrink:0}
-  .user-chip:hover{background:var(--border)}
-  @media(max-width:400px){.user-chip span:not(.user-role-badge){display:none}.user-chip{padding:5px}}
-  .user-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#0A0A0A;overflow:hidden;flex-shrink:0}
-  .user-avatar img{width:100%;height:100%;object-fit:cover}
   /* ===== PIN ===== */
   #pin-overlay{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
   .pin-dot{width:15px;height:15px;border-radius:50%;background:var(--border2);transition:background .15s,transform .15s}
@@ -184,7 +172,6 @@
     #topbar .brand span{font-size:15px}
     .row2{grid-template-columns:1fr}
     .row3{grid-template-columns:1fr 1fr 1fr}
-    @media(max-width:360px){.row3{grid-template-columns:1fr 1fr}}
     #view{padding:14px}
     .sec-head{flex-direction:column;align-items:stretch}
     .sec-head .btn-primary{align-self:flex-start}
@@ -214,30 +201,11 @@
       <button class="top-action" id="btn-tema" onclick="toggleTema()" aria-label="Alternar tema"></button>
       <button class="top-action" id="btn-sino" onclick="setView('lembretes')" aria-label="Lembretes"><span id="lembrete-badge"></span></button>
       <button class="top-action" id="btn-novo" onclick="modalAgenda()" aria-label="Novo agendamento"></button>
-      <div id="user-chip-wrap"></div>
     </header>
     <div id="view"></div>
   </main>
 </div>
 <div id="modal-root"></div>
-<div id="login-overlay">
-  <div class="login-card">
-    <div class="login-logo">
-      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
-    </div>
-    <h1 id="login-title" style="font-size:22px;font-weight:700;margin-bottom:6px">Barbearia</h1>
-    <p style="color:var(--text-2);font-size:13px;margin-bottom:20px">Sistema de Gestão</p>
-    <div class="field"><label class="lbl">E-mail</label>
-      <input id="login-email" class="inp" type="email" inputmode="email" autocomplete="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')document.getElementById('login-senha').focus()">
-    </div>
-    <div class="field" style="margin-top:10px"><label class="lbl">Senha</label>
-      <input id="login-senha" class="inp" type="password" autocomplete="current-password" placeholder="Sua senha" onkeydown="if(event.key==='Enter')loginComEmail()">
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:16px;padding:13px" onclick="loginComEmail()">Entrar</button>
-    <p id="login-erro" style="color:var(--red);font-size:12px;margin-top:12px;display:none"></p>
-    <p style="font-size:11px;color:var(--text-3);margin-top:16px;line-height:1.5">Primeiro acesso? Digite seu e-mail e crie uma senha.<br>Sua conta de dono será criada automaticamente.</p>
-  </div>
-</div>
 <div id="pin-overlay"></div>
 
 <!-- Firebase -->
@@ -266,75 +234,6 @@ try{
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
 }catch(e){ console.warn('Firebase init:', e); }
-
-/* ============ AUTH — EMAIL + SENHA ============ */
-let authRole = null;       // 'dono' | 'barbeiro'
-let authBarbeiroNome = null;
-let authEmail = null;
-
-function mostrarLogin(){
-  const el=document.getElementById('login-overlay'); if(el) el.style.display='flex';
-  const t=document.getElementById('login-title');
-  if(t) t.textContent=state.config.barbearia?.nome||'Barbearia';
-  // Preencher email se lembrado
-  const last=LS.get('bc:last_email');
-  const ef=document.getElementById('login-email');
-  if(ef&&last) ef.value=last;
-}
-function esconderLogin(){ const el=document.getElementById('login-overlay'); if(el) el.style.display='none'; }
-
-function loginComEmail(){
-  const email=(document.getElementById('login-email')?.value||'').trim().toLowerCase();
-  const senha=document.getElementById('login-senha')?.value||'';
-  const erro=document.getElementById('login-erro');
-  if(!email||!senha){ if(erro){erro.textContent='Preencha e-mail e senha.';erro.style.display='block';} return; }
-  const usuarios=state.config.usuarios||[];
-  // Primeiro acesso: criar conta dono automaticamente
-  if(usuarios.length===0){
-    const senhaH=hashSenha(senha);
-    state.config.usuarios=[{email,senhaHash:senhaH,role:'dono',nome:'Dono'}];
-    saveConfig();
-    _acessar('dono',null,email);
-    return;
-  }
-  const u=usuarios.find(x=>x.email===email&&x.senhaHash===hashSenha(senha));
-  if(!u){ if(erro){erro.textContent='E-mail ou senha incorretos.';erro.style.display='block';} return; }
-  _acessar(u.role,u.role==='barbeiro'?u.nome:null,email);
-}
-function hashSenha(s){ return btoa(encodeURIComponent(s+':nr-salt-2024')).replace(/=/g,''); }
-function _acessar(role,barbName,email){
-  authRole=role; authBarbeiroNome=barbName||null; authEmail=email;
-  LS.set('bc:last_email',email);
-  LS.set('bc:session_auth',{role,barbName:barbName||null,email,expires:Date.now()+30*24*60*60*1000});
-  if(role==='barbeiro'&&typeof agFiltroBarb!=='undefined') agFiltroBarb=barbName||'';
-  esconderLogin(); render();
-}
-function logout(){ authRole=null; authBarbeiroNome=null; authEmail=null; LS.set('bc:session_auth',null); mostrarLogin(); }
-
-function renderUserChip(){
-  const wrap=document.getElementById('user-chip-wrap'); if(!wrap||!authRole) return;
-  const nome=authBarbeiroNome||authEmail||'Usuário';
-  wrap.innerHTML=`<button class="user-chip" onclick="modalContaUsuario()">
-    <div class="user-avatar"><span>${esc((nome).charAt(0).toUpperCase())}</span></div>
-    <span style="max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nome.split(' ')[0])}</span>
-    ${authRole==='barbeiro'?'<span class="user-role-badge" style="font-size:9px;background:var(--amber-bg);color:var(--amber);padding:1px 5px;border-radius:8px">FUNC</span>':''}
-  </button>`;
-}
-function modalContaUsuario(){
-  openModal(`<div class="modal-head"><h2>Minha Conta</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <div style="text-align:center;padding:16px 0 20px">
-      <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#0A0A0A;margin:0 auto 12px">${esc((authBarbeiroNome||authEmail||'U').charAt(0).toUpperCase())}</div>
-      <div style="font-weight:700;font-size:15px">${esc(authBarbeiroNome||authEmail||'')}</div>
-      <div style="font-size:12px;color:var(--text-2);margin-top:4px">${esc(authEmail||'')}</div>
-      <div style="margin-top:10px"><span style="font-size:11px;padding:3px 12px;border-radius:12px;font-weight:700;${authRole==='dono'?'background:rgba(201,168,76,.15);color:var(--gold)':'background:var(--amber-bg);color:var(--amber)'}">${authRole==='dono'?'👑 Dono':'✂️ Funcionário'}</span></div>
-    </div>
-    <div class="modal-foot"><button class="btn btn-red" onclick="closeModal();logout()">Sair</button><button class="btn" onclick="closeModal()">Fechar</button></div>`);
-}
-let notifStarted=false;
-function startNotificacoes(){ if(notifStarted) return; notifStarted=true; verificarNotificacoes(); setInterval(verificarNotificacoes,60000); }
-const VIEWS_BARB=['agenda'];
-const NAV_BARB=[{id:'agenda',ic:'calendar',l:'Agenda'}];
-const isDono=()=>authRole==='dono'||!authRole;
 
 /* ============ SUPABASE (NUVEM ALTERNATIVA — opcional) ============ */
 // Após criar sua conta no supabase.com, cole aqui o URL e a chave anon do seu projeto:
@@ -426,7 +325,7 @@ function weekDays(refISO){
   const arr=[]; for(let i=0;i<7;i++){ const x=new Date(seg); x.setDate(seg.getDate()+i); arr.push(toISO(x)); }
   return arr;
 }
-function countAgDia(iso){ return state.agendamentos.filter(a=>a.data===iso && a.status!=='cancelado' && (!agFiltroBarb||a.barbeiro===agFiltroBarb)).length; }
+function countAgDia(iso){ return state.agendamentos.filter(a=>a.data===iso && a.status!=='cancelado').length; }
 function demandaBg(n){ if(n===0)return 'transparent'; if(n<=2)return 'rgba(201,168,76,0.15)'; if(n<=4)return 'rgba(201,168,76,0.40)'; return 'rgba(201,168,76,0.68)'; }
 function weekStrip(){
   const dias=weekDays(agFiltro); const nomes=['SEG','TER','QUA','QUI','SEX','SÁB','DOM'];
@@ -469,8 +368,6 @@ function migrarDados(){
   if(c.pinHash===undefined) c.pinHash = '';
   if(!Array.isArray(state.pacotes)) state.pacotes = [];
   if(!c.msgPacoteRenovado) c.msgPacoteRenovado='Olá {nome}! 🎉 Seu pacote *{pacote}* do mês de {mes} foi renovado com sucesso!\n💈 Valor: {valor}\nObrigado pela confiança! Qualquer dúvida é só chamar. ✂️';
-  if(!c.comissoesPagasAte) c.comissoesPagasAte={};
-  if(!Array.isArray(c.usuarios)) c.usuarios=[];
 }
 
 /* ============ ÍCONES ============ */
@@ -715,15 +612,14 @@ function setView(v){
   render();
 }
 function renderNav(){
-  const navItems=isDono()?NAV:NAV_BARB;
-  document.getElementById('nav-items').innerHTML = navItems.map(n=>`
+  document.getElementById('nav-items').innerHTML = NAV.map(n=>`
     <button class="nav-btn ${state.view===n.id?'active':''}" onclick="setView('${n.id}')">
       ${ICON[n.ic](20)}
       <span class="lbl-short">${n.l}</span><span class="lbl-full">${n.l}</span>
     </button>`).join('');
+  // Atualizar nome da barbearia na topbar
   const brandSpan=document.querySelector('#topbar-brand span');
   if(brandSpan) brandSpan.textContent=state.config.barbearia?.nome||'Barbearia Ceribelli';
-  renderUserChip();
 }
 
 /* ============ STATUS ============ */
@@ -734,17 +630,12 @@ const ST_LBL={agendado:'Agendado',concluido:'Concluído',cancelado:'Cancelado'};
 /* ============ RENDER ROUTER ============ */
 function render(){
   try{
-    // Se Firebase tem auth e usuário não está logado → mostrar login
-    if(!authRole){ mostrarLogin(); return; }
-    esconderLogin();
     const overlay=document.getElementById('pin-overlay');
-    if(isDono()&&pinRequired()){
+    if(pinRequired()){
       if(overlay){ overlay.style.display='flex'; overlay.innerHTML=viewPin(); }
       return;
     }
     if(overlay) overlay.style.display='none';
-    // Barbeiro só acessa views permitidas
-    if(authRole==='barbeiro'&&!VIEWS_BARB.includes(state.view)) state.view='agenda';
     renderNav();
     const el=document.getElementById('view');
     if(!el) return;
@@ -835,34 +726,20 @@ function viewDashboard(){
 let agFiltro = todayStr();
 let agModo='novo';
 let agFiltroBarb='', agFiltroStatus='';
-function verAgendaBarbeiro(nome){ agFiltroBarb=nome; agFiltro=todayStr(); setView('agenda'); }
 function viewAgenda(){
-  const barbsConfig=state.config.barbeiros||[];
   let lista=state.agendamentos.filter(a=>!agFiltro||a.data===agFiltro);
   if(agFiltroBarb) lista=lista.filter(a=>a.barbeiro===agFiltroBarb);
   if(agFiltroStatus) lista=lista.filter(a=>a.status===agFiltroStatus);
   lista.sort((a,b)=>a.hora>b.hora?1:-1);
-  const filtroDesc=[agFiltroBarb?`${agFiltroBarb}`:'',agFiltroStatus?`${ST_LBL[agFiltroStatus]||agFiltroStatus}`:''].filter(Boolean).join(' · ');
-  // abas de barbeiro — conta agendados+concluidos do dia por barbeiro
-  const barbTabsHTML=barbsConfig.length>1?`
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;align-items:center">
-      <button class="btn btn-sm ${!agFiltroBarb?'btn-primary':''}" style="flex-shrink:0" onclick="agFiltroBarb='';render()">
-        Todos <span style="font-size:10px;opacity:.75">(${state.agendamentos.filter(a=>a.data===agFiltro&&a.status!=='cancelado').length})</span>
-      </button>
-      ${barbsConfig.map(b=>{
-        const cnt=state.agendamentos.filter(a=>a.data===agFiltro&&a.barbeiro===b&&a.status!=='cancelado').length;
-        return `<button class="btn btn-sm ${agFiltroBarb===b?'btn-primary':''}" style="flex-shrink:0" onclick="agFiltroBarb='${esc(b)}';render()">
-          ${esc(b)}${cnt>0?` <span style="font-size:10px;opacity:.75">(${cnt})</span>`:''}
-        </button>`;
-      }).join('')}
-    </div>`:'';
+  const barbs=[...new Set(state.agendamentos.map(a=>a.barbeiro).filter(Boolean))];
+  const filtroDesc = [agFiltroBarb?`barbeiro: ${agFiltroBarb}`:'', agFiltroStatus?`status: ${ST_LBL[agFiltroStatus]||agFiltroStatus}`:''  ].filter(Boolean).join(' · ');
   return `
-    <div class="sec-head" style="margin-bottom:10px"><div><h1>Agenda${filtroDesc?' — '+filtroDesc:''}</h1><p>${lista.length} agendamento(s) · ${fmtDate(agFiltro)}</p></div>
-      <button class="btn btn-primary" onclick="modalAgenda()">+ Novo</button></div>
+    <div class="sec-head"><div><h1>Agenda</h1><p>${lista.length} agendamento(s)${filtroDesc?' — '+filtroDesc:''}</p></div>
+      <button class="btn btn-primary" onclick="modalAgenda()">+ Novo Agendamento</button></div>
     ${weekStrip()}
-    ${barbTabsHTML}
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <input type="date" class="inp" style="flex:1;min-width:140px" value="${agFiltro}" onchange="agFiltro=this.value;render()">
+      ${barbs.length>1?`<select class="inp" style="flex:1;min-width:120px" onchange="agFiltroBarb=this.value;render()"><option value="">Todos barbeiros</option>${barbs.map(b=>`<option value="${esc(b)}" ${agFiltroBarb===b?'selected':''}>${esc(b)}</option>`).join('')}</select>`:''}
       <select class="inp" style="flex:1;min-width:120px" onchange="agFiltroStatus=this.value;render()"><option value="">Todos status</option>${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${agFiltroStatus===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select>
     </div>
     ${lista.length?lista.map(a=>`<div class="card list-item" style="padding:15px">
@@ -891,16 +768,11 @@ function setStatusAg(id,st){
   save('agendamentos'); render();
 }
 function delAgenda(id){
-  const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
-  openModal(`<div class="modal-head"><h2>Remover Agendamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:6px">Remover o agendamento de <strong>${esc(a.clienteNome)}</strong>?</p>
-    <p style="font-size:12px;color:var(--text-3);margin-bottom:18px">${a.servico} · ${fmtDate(a.data)} ${a.hora}</p>
-    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-red" onclick="confirmarDelAgenda('${id}')">Remover</button></div>`);
-}
-function confirmarDelAgenda(id){
-  const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
-  if(a.lancamentoId){ state.lancamentos=state.lancamentos.filter(l=>l.id!==a.lancamentoId); save('lancamentos'); }
-  state.agendamentos=state.agendamentos.filter(x=>x.id!==id); save('agendamentos'); closeModal(); render();
+  if(confirm('Remover este agendamento?')){
+    const a=state.agendamentos.find(x=>x.id===id);
+    if(a && a.lancamentoId){ state.lancamentos=state.lancamentos.filter(l=>l.id!==a.lancamentoId); save('lancamentos'); }
+    state.agendamentos=state.agendamentos.filter(x=>x.id!==id); save('agendamentos'); render();
+  }
 }
 function modalAgenda(id){
   const dataDef = agFiltro||todayStr();
@@ -1351,6 +1223,7 @@ function viewClientes(){
       </div></div>`}).join(''):`<div class="card empty">${ICON.users(36,'#252525')}<p>Nenhum cliente encontrado</p><button class="btn btn-primary" onclick="modalCliente()">Cadastrar Cliente</button></div>`}`;
 }
 function togBloq(id){ state.clientes=state.clientes.map(c=>c.id===id?{...c,bloqueado:!c.bloqueado}:c); save('clientes'); render(); }
+function delCliente(id){ if(confirm('Remover cliente?')){ state.clientes=state.clientes.filter(c=>c.id!==id); save('clientes'); render(); } }
 function modalCliente(id){
   const c=id?state.clientes.find(x=>x.id===id):{nome:'',telefone:'',dataNascimento:'',observacoes:'',bloqueado:false};
   openModal(`
@@ -1417,8 +1290,7 @@ function viewBarbeiros(){
     </div>
     ${barbs.length?barbs.map(b=>{
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-      const ultimoPagto=(state.config.comissoesPagasAte||{})[b]||'';
-      const agsPag=ags.filter(a=>!a.ePacote&&(!ultimoPagto||a.data>ultimoPagto));
+      const agsPag=ags.filter(a=>!a.ePacote);
       const agsPac=ags.filter(a=>a.ePacote);
       const receita=agsPag.reduce((s,a)=>{ const l=state.lancamentos.find(x=>x.id===a.lancamentoId); return s+(l?(l.valor||0):0); },0);
       const pct=parseFloat(com[b])||0;
@@ -1432,9 +1304,9 @@ function viewBarbeiros(){
           </div>
           <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--green)">${fmtMoney(receita)}</div><div style="font-size:10px;color:var(--text-3)">receita bruta</div></div>
         </div>
-        ${agsPac.length?`<div style="padding:7px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px">📦 +${agsPac.length} atendimento(s) de pacote — sem comissão individual</div>`:''}
+        ${agsPac.length?`<div style="padding:8px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px">📦 +${agsPac.length} atendimento(s) de pacote — sem lançamento financeiro individual</div>`:''}
         ${Object.keys(byServico).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${Object.entries(byServico).map(([s,n])=>`<span style="padding:3px 10px;background:var(--inner);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text-2)">${esc(s)}: <strong>${n}x</strong></span>`).join('')}</div>`:''}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div style="padding:10px;background:var(--inner);border-radius:8px;text-align:center">
             <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">% Comissão</div>
             <div style="font-size:16px;font-weight:700;color:var(--gold)">${pct}%</div>
@@ -1444,11 +1316,8 @@ function viewBarbeiros(){
             <div style="font-size:16px;font-weight:700;color:${comissao>0?'var(--amber)':'var(--text-3)'}">${fmtMoney(comissao)}</div>
           </div>
         </div>
-        ${ultimoPagto?`<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:4px">Último pagamento: ${fmtDate(ultimoPagto)}</div>`:''}
         ${pct===0?`<p style="font-size:11px;color:var(--text-3);margin-top:8px;text-align:center">Configure o % em Config → Financeiro</p>`:''}
         ${ags.length===0?`<p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px">Nenhum serviço concluído neste período</p>`:''}
-        ${comissao>0?`<button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="pagarComissao('${esc(b)}',${comissao})">💰 Pagar comissão — ${fmtMoney(comissao)}</button>`:(pct>0?`<p style="font-size:12px;color:var(--green);text-align:center;margin-top:8px">✅ Comissão em dia</p>`:'')}
-        <button class="btn" style="width:100%;margin-top:8px" onclick="verAgendaBarbeiro('${esc(b)}')">📅 Ver Agenda de ${esc(b)}</button>
       </div>`;
     }).join(''):`<div class="card empty">${ICON.cut(36,'#252525')}<p>Nenhum barbeiro cadastrado</p><button class="btn btn-primary" onclick="cfgTab='barbearia';setView('configuracoes')">Cadastrar Barbeiro</button></div>`}`;
 }
@@ -1513,29 +1382,12 @@ function usarServicoPacote(pid,si){
   state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,servicos:p.servicos.map((s,i)=>i===si?{...s,usados:(s.usados||0)+1}:s)}:p);
   save('pacotes'); render();
 }
-function encerrarPacote(pid){
-  openModal(`<div class="modal-head"><h2>Encerrar Pacote</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:18px">Deseja encerrar este pacote? Ele não aparecerá mais na lista de ativos.</p>
-    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-red" onclick="state.pacotes=state.pacotes.map(p=>p.id==='${pid}'?{...p,ativo:false}:p);save('pacotes');closeModal();render()">Encerrar</button></div>`);
-}
 function resetarPacote(pid){
-  openModal(`<div class="modal-head"><h2>Reiniciar Mês</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:18px">Reiniciar o uso de todos os serviços deste pacote para o próximo mês?</p>
-    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="state.pacotes=state.pacotes.map(p=>p.id==='${pid}'?{...p,servicos:p.servicos.map(s=>({...s,usados:0})),mes:todayStr().slice(0,7)}:p);save('pacotes');closeModal();render()">Reiniciar</button></div>`);
+  if(!confirm('Reiniciar o uso de todos os serviços deste pacote para o próximo mês?')) return;
+  state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,servicos:p.servicos.map(s=>({...s,usados:0})),mes:todayStr().slice(0,7)}:p);
+  save('pacotes'); render();
 }
-function delCliente(id){
-  const c=state.clientes.find(x=>x.id===id); if(!c) return;
-  openModal(`<div class="modal-head"><h2>Remover Cliente</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:6px">Remover <strong>${esc(c.nome)}</strong>?</p>
-    <p style="font-size:12px;color:var(--text-3);margin-bottom:18px">O histórico de agendamentos não será apagado.</p>
-    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-red" onclick="state.clientes=state.clientes.filter(x=>x.id!=='${id}');save('clientes');closeModal();render()">Remover</button></div>`);
-}
-function delProduto(id){
-  const p=state.produtos.find(x=>x.id===id); if(!p) return;
-  openModal(`<div class="modal-head"><h2>Remover Produto</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:18px">Remover <strong>${esc(p.nome)}</strong>?</p>
-    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-red" onclick="state.produtos=state.produtos.filter(x=>x.id!=='${id}');save('produtos');closeModal();render()">Remover</button></div>`);
-}
+function encerrarPacote(pid){ if(!confirm('Encerrar este pacote?')) return; state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,ativo:false}:p); save('pacotes'); render(); }
 function modalPacote(id){
   const p=id?state.pacotes.find(x=>x.id===id):null;
   pacoteServicosTemp=p?[...p.servicos.map(s=>({...s}))]:[];
@@ -1578,35 +1430,7 @@ function savePacote(id){
   save('pacotes'); closeModal(); render();
 }
 
-function modalPagarComissao(barbeiro, valor){
-  if(valor<=0){ return; }
-  openModal(`
-    <div class="modal-head"><h2>Pagar Comissão</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <div style="text-align:center;padding:18px 0 10px">
-      <div style="font-size:12px;color:var(--text-3);margin-bottom:6px">Comissão pendente</div>
-      <div style="font-size:32px;font-weight:700;color:var(--gold);margin-bottom:6px">${fmtMoney(valor)}</div>
-      <div style="font-size:14px;font-weight:700">${esc(barbeiro)}</div>
-    </div>
-    <div style="padding:12px 14px;background:var(--inner);border-radius:8px;font-size:12px;color:var(--text-2);margin:12px 0;text-align:center;line-height:1.6">
-      Uma saída de <strong>${fmtMoney(valor)}</strong> será criada no Financeiro.<br>
-      A comissão acumulada até hoje será zerada.
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="confirmarPagtoComissao('${esc(barbeiro)}',${valor})">💰 Confirmar pagamento</button>
-    </div>
-  `);
-}
-function confirmarPagtoComissao(barbeiro, valor){
-  if(!state.config.comissoesPagasAte) state.config.comissoesPagasAte={};
-  state.config.comissoesPagasAte[barbeiro]=todayStr();
-  saveConfig();
-  state.lancamentos.push({id:uid(),tipo:'saida',descricao:`Comissão — ${barbeiro}`,categoria:'Comissão',valor:parseFloat(valor),valorLiquido:parseFloat(valor),formaPagamento:'dinheiro',data:todayStr(),origem:'comissao',barbeiro:barbeiro,createdAt:Date.now()});
-  save('lancamentos');
-  closeModal();
-  render();
-}
-function pagarComissao(barbeiro, valor){ modalPagarComissao(barbeiro, valor); }
+/* ============ FINANCEIRO ============ */
 let finFiltro=todayStr(), finModo='mes';
 const FP_COLOR={pix:'#10B981',dinheiro:'#3B82F6',debito:'#8B5CF6',credito:'#F59E0B'};
 const CATS=['Serviço','Produto','Aluguel','Material','Salário','Outros'];
@@ -1658,12 +1482,8 @@ function viewFinanceiro(){
         <button class="btn btn-sm" onclick="finFiltro='${navDate(1)}';render()">›</button>
       </div>`:`<div style="margin-bottom:14px;font-size:13px;font-weight:600;color:var(--gold)">${periodoLabel()}</div>`}
     <div class="row3" style="margin-bottom:16px">
-      ${[
-        {l:'Entradas',v:fmtMoney(ent),c:'var(--green)',bg:'var(--green-bg)',bo:'rgba(34,197,94,.25)'},
-        {l:'Saídas',v:fmtMoney(sai),c:'var(--red)',bg:'var(--red-bg)',bo:'rgba(239,68,68,.25)'},
-        {l:'Saldo',v:fmtMoney(saldo),c:saldo>=0?'var(--green)':'var(--red)',bg:saldo>=0?'var(--green-bg)':'var(--red-bg)',bo:saldo>=0?'rgba(34,197,94,.25)':'rgba(239,68,68,.25)'}
-      ].map(c=>
-        `<div style="background:${c.bg};border:1px solid ${c.bo};border-radius:10px;padding:12px;text-align:center">
+      ${[{l:'Entradas',v:fmtMoney(ent),c:'var(--green)',bg:'var(--green-bg)'},{l:'Saídas',v:fmtMoney(sai),c:'var(--red)',bg:'var(--red-bg)'},{l:'Saldo',v:fmtMoney(saldo),c:saldo>=0?'var(--green)':'var(--red)',bg:saldo>=0?'var(--green-bg)':'var(--red-bg)'}].map(c=>
+        `<div style="background:${c.bg};border:1px solid ${c.c}30;border-radius:10px;padding:12px;text-align:center">
           <div style="font-size:14px;font-weight:700;color:${c.c}">${c.v}</div>
           <div style="font-size:10px;color:${c.c};opacity:.7;margin-top:2px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${c.l}</div>
         </div>`).join('')}
@@ -1689,22 +1509,7 @@ function viewFinanceiro(){
       Total geral (todos os períodos) — Entradas: <strong style="color:var(--green)">${fmtMoney(entAll)}</strong> · Saídas: <strong style="color:var(--red)">${fmtMoney(saiAll)}</strong> · Saldo: <strong style="color:${entAll-saiAll>=0?'var(--green)':'var(--red)'}">${fmtMoney(entAll-saiAll)}</strong>
     </div>`:''}`;
 }
-function delLanc(id){
-  const l=state.lancamentos.find(x=>x.id===id); if(!l) return;
-  openModal(`
-    <div class="modal-head"><h2>Remover Lançamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
-    <p style="font-size:13px;color:var(--text-2);margin-bottom:6px">Deseja remover este lançamento?</p>
-    <div style="padding:12px 14px;background:var(--inner);border-radius:8px;margin-bottom:18px">
-      <div style="font-weight:600;font-size:13px">${esc(l.descricao)}</div>
-      <div style="font-size:12px;color:var(--text-2);margin-top:4px">${l.tipo==='entrada'?'+':'−'}${fmtMoney(l.valor)} · ${fmtDate(l.data)}</div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-red" onclick="confirmarDelLanc('${id}')">Remover</button>
-    </div>
-  `);
-}
-function confirmarDelLanc(id){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); closeModal(); render(); }
+function delLanc(id){ if(confirm('Remover lançamento?')){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); render(); } }
 let lancTmp={tipo:'entrada',formaPagamento:'pix'};
 function modalLanc(){
   lancTmp={tipo:'entrada',formaPagamento:'pix'};
@@ -1777,7 +1582,7 @@ function viewProdutos(){
         <div class="actions"><button class="btn btn-green btn-sm" style="flex:1" onclick="modalVender('${p.id}')">🛒 Vender</button><button class="btn btn-sm" style="flex:1" onclick="modalProduto('${p.id}')">✎ Editar</button><button class="btn btn-red btn-sm" style="flex:1" onclick="delProduto('${p.id}')">✕ Remover</button></div>
       </div></div>`}).join(''):`<div class="card empty">${ICON.package(36,'#252525')}<p>Nenhum produto cadastrado</p><button class="btn btn-primary" onclick="modalProduto()">Cadastrar Produto</button></div>`}`;
 }
-
+function delProduto(id){ if(confirm('Remover produto?')){ state.produtos=state.produtos.filter(p=>p.id!==id); save('produtos'); render(); } }
 function modalProduto(id){
   const p=id?state.produtos.find(x=>x.id===id):{nome:'',categoria:'Outros',descricao:'',preco:'',validade:'',estoque:'',fotoUrl:''};
   prodFoto=p.fotoUrl||'';
@@ -1851,23 +1656,7 @@ function viewConfig(){
         <span style="font-size:13px;font-weight:700;color:var(--gold)">${VERSAO}</span>
       </div>
       <p style="font-size:11px;color:var(--text-3);margin-top:5px">Barbearia Ceribelli Management System</p>
-    </div>
-    <div class="card" style="margin-top:14px">
-      <div style="font-size:13px;font-weight:700;margin-bottom:12px">🔐 Usuários do Sistema</div>
-      <div style="font-size:11px;color:var(--text-3);margin-bottom:12px">Gerencie quem tem acesso. Dono = acesso total. Funcionário = somente Agenda.</div>
-      ${(cfg.usuarios||[]).map((u,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--inner);border-radius:8px;margin-bottom:6px">
-        <div><div style="font-size:12px;font-weight:600">${esc(u.nome||u.email)}</div>
-          <div style="font-size:11px;color:var(--text-3)">${esc(u.email)} · ${u.role==='dono'?'👑 Dono':'✂️ Funcionário'}</div></div>
-        ${u.role!=='dono'?`<button class="btn btn-red btn-sm" style="font-size:10px" onclick="cfg_delUsuario(${i})">Remover</button>`:'<span style="font-size:10px;color:var(--text-3)">Principal</span>'}
-      </div>`).join('')}
-      <div style="margin-top:12px;padding:12px;background:var(--inner);border-radius:8px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:8px">+ Adicionar Funcionário</div>
-        <div class="field"><input id="nu-nome" class="inp" placeholder="Nome" style="font-size:12px"></div>
-        <div class="field" style="margin-top:6px"><input id="nu-email" class="inp" type="email" placeholder="email@exemplo.com" style="font-size:12px"></div>
-        <div class="field" style="margin-top:6px"><input id="nu-senha" class="inp" type="password" placeholder="Senha de acesso" style="font-size:12px"></div>
-        <button class="btn btn-sm" style="width:100%;margin-top:8px" onclick="cfg_addUsuario()">Adicionar</button>
-      </div>
-    </div>
+    </div>`;
   } else if(cfgTab==='taxas'){
     body=`<div class="card">
       <h3 style="font-size:14px;margin-bottom:12px">Taxas da Maquininha</h3>
@@ -2026,18 +1815,6 @@ function lancarDespesasFixas(){
   save('lancamentos'); render();
   alert(`✅ ${novas.length} despesa(s) lançadas para ${mes}.`);
 }
-function cfg_addUsuario(){
-  const nome=document.getElementById('nu-nome')?.value.trim();
-  const email=document.getElementById('nu-email')?.value.trim().toLowerCase();
-  const senha=document.getElementById('nu-senha')?.value;
-  if(!nome||!email||!senha||!email.includes('@')){ setCloudStatus('Preencha nome, e-mail e senha válidos.','#EF4444'); return; }
-  if(!state.config.usuarios) state.config.usuarios=[];
-  if(state.config.usuarios.some(u=>u.email===email)){ setCloudStatus('E-mail já cadastrado.','#EF4444'); return; }
-  state.config.usuarios.push({email,senhaHash:hashSenha(senha),role:'barbeiro',nome});
-  saveConfig(); render();
-  setCloudStatus('Funcionário adicionado!','#22C55E');
-}
-function cfg_delUsuario(i){ state.config.usuarios.splice(i,1); saveConfig(); render(); }
 function cfg_set(path,v){ const k=path.split('.'); let o=state.config; for(let i=0;i<k.length-1;i++)o=o[k[i]]; o[k[k.length-1]]=v; saveConfig(); }
 function cfg_setNum(k,v){ state.config[k]=parseFloat(v)||0; saveConfig(); }
 function cfg_addArr(key,inp){ const v=inp.value.trim(); if(v){ state.config[key].push(v); saveConfig(); render(); } }
@@ -2134,54 +1911,52 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 })();
 
 /* ============ INIT ============ */
-async function carregarDados(){
+async function boot(){
+  migrarDados();
+  applyTema();
+  // loading state
+  const viewEl=document.getElementById('view');
+  if(viewEl) viewEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite"></div><p style="font-size:13px;color:var(--text-3)">Carregando...</p></div>`;
   if(db){
     setCloudStatus('☁️ Carregando...','#9CA3AF');
     try{
-      const snap=await db.collection('dados').get();
+      const snap = await db.collection('dados').get();
       if(!snap.empty){
-        const localPrds=LS.get('bc:produtos')||[];
+        const localPrds = LS.get('bc:produtos') || [];
         snap.forEach(doc=>{
           const d=doc.data();
           if(doc.id==='config'){ if(d&&d.value) state.config=d.value; }
           else if(doc.id==='notas'){ if(d&&d.value!==undefined) state.notas=d.value; }
           else if(doc.id==='produtos'&&d&&d.items){
+            // mescla fotos do localStorage (não salvas no Firebase por tamanho)
             state.produtos=d.items.map(p=>{ const loc=localPrds.find(lp=>lp.id===p.id); return loc?.fotoUrl?{...p,fotoUrl:loc.fotoUrl}:p; });
           }
           else if(d&&d.items) state[doc.id]=d.items;
         });
         migrarDados();
         ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao','pacotes'].forEach(k=>LS.set('bc:'+k,state[k]));
-        LS.set('bc:config',state.config); LS.set('bc:notas',state.notas);
+        LS.set('bc:config',state.config);
+        LS.set('bc:notas',state.notas);
       } else {
+        // Primeira vez: envia dados locais para a nuvem
         ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao','pacotes'].forEach(k=>save(k));
         saveConfig();
         if(state.notas) db.collection('dados').doc('notas').set({value:state.notas}).catch(()=>{});
       }
       setCloudStatus('☁️ Firebase sincronizado','#22C55E');
-    }catch(e){ console.warn('Firebase load:',e); setCloudStatus('⚠️ Sem conexão — dados locais','#F59E0B'); }
-  } else if(SB_URL&&SB_URL.length>10){
+    }catch(e){
+      console.warn('Firebase load:',e);
+      setCloudStatus('⚠️ Sem conexão — dados locais','#F59E0B');
+    }
+  } else if(SB_URL && SB_URL.length>10){
     setCloudStatus('☁️ Carregando Supabase...','#9CA3AF');
-    const ok=await cloudLoad();
-    setCloudStatus(ok?'☁️ Supabase sincronizado':'⚠️ Sem conexão — dados locais',ok?'#22C55E':'#F59E0B');
+    const ok = await cloudLoad();
+    setCloudStatus(ok?'☁️ Supabase sincronizado':'⚠️ Sem conexão — dados locais', ok?'#22C55E':'#F59E0B');
   }
-}
-
-async function boot(){
-  migrarDados();
-  applyTema();
-  const viewEl=document.getElementById('view');
-  if(viewEl) viewEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:60vh;flex-direction:column;gap:14px"><div style="width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite"></div><p style="font-size:13px;color:var(--text-3)">Carregando...</p></div>`;
-  // Verificar sessão salva (válida por 30 dias)
-  const sess=LS.get('bc:session_auth');
-  if(sess&&sess.expires>Date.now()&&sess.role){
-    authRole=sess.role; authBarbeiroNome=sess.barbName||null; authEmail=sess.email||null;
-    if(authRole==='barbeiro'&&typeof agFiltroBarb!=='undefined') agFiltroBarb=authBarbeiroNome||'';
-  }
-  await carregarDados();
-  migrarDados();
   render();
-  startNotificacoes();
+  // Verificar notificações a cada 60 segundos
+  verificarNotificacoes();
+  setInterval(verificarNotificacoes, 60000);
 }
 boot();
 window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); } });

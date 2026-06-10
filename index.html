@@ -1761,6 +1761,7 @@ function viewConfig(){
     body=`<div class="card">
     ${isDono()?`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
   <button class="btn btn-primary" onclick="modalCadastrarFuncionario()">+ Cadastrar Funcionário</button>
+  <button class="btn" onclick="modalGerenciarAcessos()">👥 Gerenciar Acessos</button>
   <button class="btn btn-red" onclick="fazerLogout()">🚪 Sair do sistema</button>
 </div>`:`<div style="margin-bottom:16px"><button class="btn btn-red" onclick="fazerLogout()">🚪 Sair do sistema</button></div>`}
       <h3 style="font-size:14px;margin-bottom:14px">Dados</h3>
@@ -2088,6 +2089,51 @@ async function fazerLogout(){
 }
 
 /* ============ CADASTRO DE FUNCIONÁRIO (pelo dono) ============ */
+  async function modalGerenciarAcessos(){
+  openModal(`
+    <div class="modal-head"><h2>👥 Gerenciar Acessos</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <p style="font-size:12px;color:var(--text-2);margin-bottom:16px">Funcionários com acesso ao sistema.</p>
+    <div id="lista-acessos"><p style="text-align:center;color:var(--text-3);font-size:13px">Carregando...</p></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Fechar</button></div>
+  `);
+  try{
+    const snap = await db.collection('usuarios').get();
+    const lista = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      if(d.role !== 'dono') lista.push({uid: doc.id, ...d});
+    });
+    const el = document.getElementById('lista-acessos');
+    if(!el) return;
+    if(lista.length === 0){
+      el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-3)">Nenhum funcionário cadastrado.</div>`;
+      return;
+    }
+    el.innerHTML = lista.map(f=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--inner);border-radius:8px;margin-bottom:8px">
+        <div>
+          <div style="font-weight:600;font-size:14px">${esc(f.nome||'Sem nome')}</div>
+          <div style="font-size:11px;color:var(--text-3)">${esc(f.email||'')}</div>
+        </div>
+        <button class="btn btn-red" style="font-size:11px;padding:5px 10px" onclick="revogarAcesso('${f.uid}','${esc(f.nome||f.email)}')">🚫 Revogar</button>
+      </div>
+    `).join('');
+  } catch(e){
+    const el = document.getElementById('lista-acessos');
+    if(el) el.innerHTML = `<div style="color:var(--red);font-size:12px">Erro ao carregar: ${e.message}</div>`;
+  }
+}
+
+async function revogarAcesso(uid, nome){
+  if(!confirm(`Revogar acesso de ${nome}?\n\nEle não conseguirá mais entrar no sistema.`)) return;
+  try{
+    await db.collection('usuarios').doc(uid).delete();
+    alert(`✅ Acesso de ${nome} revogado!`);
+    modalGerenciarAcessos();
+  } catch(e){
+    alert('Erro ao revogar: ' + e.message);
+  }
+}
 async function modalCadastrarFuncionario(){
   openModal(`
     <div class="modal-head"><h2>Cadastrar Funcionário</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>

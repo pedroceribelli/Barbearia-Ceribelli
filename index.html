@@ -1329,10 +1329,10 @@ function viewBarbeiros(){
     </div>
     ${barbs.length?barbs.map(b=>{
       const ultimoPagto = (state.config.comissoesPagas||{})[b] || 0;
-      const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(a.createdAt||0)>ultimoPagto);
+      const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(ultimoPagto===0||(a.createdAt||0)>ultimoPagto));
       const agsPag=ags.filter(a=>!a.ePacote);
       const agsPac=ags.filter(a=>a.ePacote);
-      const receita=agsPag.reduce((s,a)=>s+(a.preco||servicoPreco(a.servico)||0),0);
+      const receita=agsPag.reduce((s,a)=>{const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;return s+(lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0));},0);
       const pct=parseFloat(com[b])||0;
       const comissao=receita*pct/100;
       const byServico={};
@@ -1371,9 +1371,9 @@ function viewBarbeiros(){
     return (a.data||'').startsWith(barbFiltro.slice(0,7));
   };
   const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
-  const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(a.createdAt||0)>ultimoPagto);
+const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(ultimoPagto===0||(a.createdAt||0)>ultimoPagto));
   const agsPag = ags.filter(a=>!a.ePacote);
-  const receita = agsPag.reduce((s,a)=>s+(a.preco||servicoPreco(a.servico)||0),0);
+const receita = agsPag.reduce((s,a)=>{const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;return s+(lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0));},0);
   const pct = parseFloat(com[b])||0;
   const comissao = receita*pct/100;
   const periodo = barbPeriodoLabel();

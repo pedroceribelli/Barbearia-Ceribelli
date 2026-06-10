@@ -1839,18 +1839,7 @@ function viewConfig(){
   return `<div class="sec-head"><div><h1>Configurações</h1><p>Personalize o sistema da sua barbearia</p></div></div>
     <div class="tabs">${tabs.map(([id,l])=>`<button class="tab ${cfgTab===id?'active':''}" onclick="cfgTab='${id}';render()">${l}</button>`).join('')}</div>
     ${cfgTab==='nuvem'?`<div class="card">
-      <h3 style="font-size:14px;margin-bottom:6px">☁️ Supabase (recomendado)</h3>
-      <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Gratuito para sempre, sem regras que expiram. Seus dados ficam na nuvem e são recuperáveis em qualquer dispositivo.</p>
-      <div style="background:var(--inner);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);margin-bottom:14px;line-height:1.8">
-        <strong style="color:var(--gold);display:block;margin-bottom:6px">Como configurar (5 minutos):</strong>
-        1️⃣ Acesse <a href="https://supabase.com" target="_blank" style="color:var(--gold)">supabase.com</a> → crie conta gratuita<br>
-        2️⃣ Crie um novo projeto → aguarde inicializar<br>
-        3️⃣ No menu lateral → <strong>SQL Editor</strong> → cole e execute:<br>
-        <code style="display:block;background:#1A1A1A;padding:8px;border-radius:6px;margin:6px 0;font-size:11px;color:#A3E635">CREATE TABLE dados (id TEXT PRIMARY KEY, valor JSONB);<br>ALTER TABLE dados ENABLE ROW LEVEL SECURITY;<br>CREATE POLICY "public" ON dados FOR ALL USING (true) WITH CHECK (true);</code>
-        4️⃣ Vá em <strong>Settings → API</strong><br>
-        5️⃣ Copie o <strong>Project URL</strong> e a chave <strong>anon public</strong><br>
-        6️⃣ Cole nos campos abaixo e faça o deploy no GitHub
-      </div>
+      <h3 style="font-size:14px;margin-bottom:6px">☁️ Nuvem</h3>      </div>
       <div class="field"><label class="lbl">Status atual</label>
         <div style="padding:8px 12px;border-radius:7px;font-size:12px;background:${db?'var(--green-bg)':(SB_URL&&SB_URL.length>10?'var(--green-bg)':'#1A1A1A')};color:${db?'var(--green)':(SB_URL&&SB_URL.length>10?'var(--green)':'var(--text-3)')}">
           ${db?'✅ Firebase conectado e ativo':(SB_URL&&SB_URL.length>10?'✅ Supabase ativo':'⚠️ Sem nuvem configurada — dados apenas no dispositivo')}

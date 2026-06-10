@@ -675,7 +675,7 @@ function render(){
     renderNav();
     const el=document.getElementById('view');
     if(!el) return;
-    if(isFuncionario() && !['agenda','dashboard'].includes(state.view)){
+    if(isFuncionario() && !['agenda','dashboard','lembretes','clientes'].includes(state.view)){
       state.view = 'agenda';
     }
     el.innerHTML=({
@@ -1255,10 +1255,10 @@ function viewClientes(){
           <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(c.telefone||'Sem telefone')} · ${h.length} atendimento(s)</div></div>
       </div>
       <div class="actions">
-        <button class="btn btn-sm" onclick="modalHist('${c.id}')">Histórico</button>
-        <button class="btn btn-sm" onclick="modalCliente('${c.id}')">Editar</button>
-        <button class="btn btn-sm ${c.bloqueado?'btn-green':'btn-amber'}" onclick="togBloq('${c.id}')">${c.bloqueado?'Desbloquear':'Bloquear'}</button>
-        <button class="btn btn-red btn-sm" onclick="delCliente('${c.id}')">Remover</button>
+          <button class="btn btn-sm" onclick="modalHist('${c.id}')">Histórico</button>
+          ${isDono()?`<button class="btn btn-sm" onclick="modalCliente('${c.id}')">Editar</button>
+          <button class="btn btn-sm ${c.bloqueado?'btn-green':'btn-amber'}" onclick="togBloq('${c.id}')">${c.bloqueado?'Desbloquear':'Bloquear'}</button>
+          <button class="btn btn-red btn-sm" onclick="delCliente('${c.id}')">Remover</button>`:''}
       </div></div>`}).join(''):`<div class="card empty">${ICON.users(36,'#252525')}<p>Nenhum cliente encontrado</p><button class="btn btn-primary" onclick="modalCliente()">Cadastrar Cliente</button></div>`}`;
 }
 function togBloq(id){ state.clientes=state.clientes.map(c=>c.id===id?{...c,bloqueado:!c.bloqueado}:c); save('clientes'); render(); }

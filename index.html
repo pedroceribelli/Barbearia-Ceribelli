@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#C9A84C">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1569,23 +1569,58 @@ function viewFinanceiro(){
 }
 function delLanc(id){ if(confirm('Remover lançamento?')){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); render(); } }
 let lancTmp={tipo:'entrada',formaPagamento:'pix'};
-function modalLanc(){
-  lancTmp={tipo:'entrada',formaPagamento:'pix'};
+const CATS_SAIDA=['Aluguel','Água/Luz/Internet','Material','Produto/Estoque','Salário','Manutenção','Alimentação','Impostos','Outros'];
+function modalLanc(tipoInicial){
+  const t = tipoInicial || 'entrada';
+  lancTmp={tipo:t,formaPagamento:'pix'};
   openModal(`
     <div class="modal-head"><h2>Novo Lançamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
     <div class="toggle-grid" id="l-toggle">
-      <button class="toggle on-green" data-t="entrada" onclick="setLancTipo('entrada')">${ICON.up(15,'#22C55E')} Entrada</button>
-      <button class="toggle" data-t="saida" onclick="setLancTipo('saida')">${ICON.down(15,'#6B7280')} Saída</button>
+      <button class="toggle ${t==='entrada'?'on-green':''}" data-t="entrada" onclick="setLancTipo('entrada')">${ICON.up(15,'#22C55E')} Entrada</button>
+      <button class="toggle ${t==='saida'?'on-red':''}" data-t="saida" onclick="setLancTipo('saida')">${ICON.down(15,'#EF4444')} Saída</button>
     </div>
-    <div class="field"><label class="lbl">Descrição</label><input id="l-desc" class="inp" placeholder="Ex: Corte + Barba — Cliente"></div>
-    <div class="row2"><div class="field"><label class="lbl">Valor (R$)</label><input id="l-valor" type="number" step="0.01" min="0" class="inp" placeholder="0,00" oninput="updLiquido()"></div>
-      <div class="field"><label class="lbl">Data</label><input id="l-data" type="date" class="inp" value="${todayStr()}"></div></div>
-    <div class="field"><label class="lbl">Categoria</label><select id="l-cat" class="inp"><option value="">Selecionar...</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
-    <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="l-pay">
-      ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setLancPay('${v}')">${l}</button>`).join('')}
-    </div><div id="l-liquido" style="margin-top:8px"></div></div>
+    <div id="l-corpo"></div>
     <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveLanc()">Adicionar</button></div>
   `);
+  renderCorpoLanc(t);
+}
+function renderCorpoLanc(t){
+  const corpo = document.getElementById('l-corpo'); if(!corpo) return;
+  if(t==='entrada'){
+    corpo.innerHTML=`
+      <div class="field"><label class="lbl">Descrição</label><input id="l-desc" class="inp" placeholder="Ex: Corte + Barba — Cliente"></div>
+      <div class="row2">
+        <div class="field"><label class="lbl">Valor (R$)</label><input id="l-valor" type="number" step="0.01" min="0" class="inp" placeholder="0,00" oninput="updLiquido()"></div>
+        <div class="field"><label class="lbl">Data</label><input id="l-data" type="date" class="inp" value="${todayStr()}"></div>
+      </div>
+      <div class="field"><label class="lbl">Categoria</label><select id="l-cat" class="inp"><option value="">Selecionar...</option>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="l-pay">
+        ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito','Débito'],['credito','Crédito']].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setLancPay('${v}')">${l}</button>`).join('')}
+      </div><div id="l-liquido" style="margin-top:8px"></div></div>`;
+  } else {
+    corpo.innerHTML=`
+      <div style="padding:10px 14px;background:var(--red-bg);border:1px solid rgba(239,68,68,.2);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--red)">
+        📤 Registre aqui qualquer despesa ou saída de dinheiro da barbearia.
+      </div>
+      <div class="field"><label class="lbl">O que foi pago?</label><input id="l-desc" class="inp" placeholder="Ex: Conta de luz, Aluguel, Material..."></div>
+      <div class="row2">
+        <div class="field"><label class="lbl">Valor (R$)</label><input id="l-valor" type="number" step="0.01" min="0" class="inp" placeholder="0,00"></div>
+        <div class="field"><label class="lbl">Data do pagamento</label><input id="l-data" type="date" class="inp" value="${todayStr()}"></div>
+      </div>
+      <div class="field"><label class="lbl">Categoria da despesa</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px" id="l-cat-grid">
+          ${CATS_SAIDA.map((c,i)=>`<button class="pay ${i===0?'on':''}" data-c="${c}" onclick="setSaidaCat('${c}')" style="text-align:left;padding:9px 12px;justify-content:flex-start">${c}</button>`).join('')}
+        </div>
+        <input type="hidden" id="l-cat" value="${CATS_SAIDA[0]}">
+      </div>
+      <div class="field"><label class="lbl">Como foi pago?</label><div class="pay-grid" id="l-pay">
+        ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito','Débito'],['credito','Cartão']].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setLancPay('${v}')">${l}</button>`).join('')}
+      </div></div>`;
+  }
+}
+function setSaidaCat(c){
+  document.querySelectorAll('#l-cat-grid .pay').forEach(b=>b.classList.toggle('on',b.dataset.c===c));
+  const h=document.getElementById('l-cat'); if(h) h.value=c;
 }
 function setLancTipo(t){
   lancTmp.tipo=t;
@@ -1593,7 +1628,7 @@ function setLancTipo(t){
     const on=b.dataset.t===t; b.className='toggle'+(on?(t==='entrada'?' on-green':' on-red'):'');
     b.querySelector('svg')?.setAttribute('stroke', on?(t==='entrada'?'#22C55E':'#EF4444'):'#6B7280');
   });
-  updLiquido();
+  renderCorpoLanc(t);
 }
 function setLancPay(p){
   lancTmp.formaPagamento=p;

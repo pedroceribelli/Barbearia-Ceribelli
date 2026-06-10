@@ -1357,10 +1357,117 @@ function viewBarbeiros(){
           </div>
         </div>
         ${comissao>0?`<button class="btn btn-amber btn-sm" style="margin-top:10px;width:100%" onclick="pagarComissao('${b}',${comissao})">💰 Pagar comissão (${fmtMoney(comissao)})</button>`:''}
+<button class="btn btn-sm" style="margin-top:6px;width:100%" onclick="gerarRelatorioBarbeiro('${b}')">📄 Gerar relatório de comissão</button>
         ${pct===0?`<p style="font-size:11px;color:var(--text-3);margin-top:8px;text-align:center">Configure o % em Config → Financeiro</p>`:''}
         ${ags.length===0?`<p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px">Nenhum serviço concluído neste período</p>`:''}
       </div>`;
     }).join(''):`<div class="card empty">${ICON.cut(36,'#252525')}<p>Nenhum barbeiro cadastrado</p><button class="btn btn-primary" onclick="cfgTab='barbearia';setView('configuracoes')">Cadastrar Barbeiro</button></div>`}`;
+}function gerarRelatorioBarbeiro(b){
+  const com = state.config.comissoes||{};
+  const dias = barbModo==='semana'?weekDays(barbFiltro):[];
+  const filtroAg = a=>{
+    if(barbModo==='dia') return a.data===barbFiltro;
+    if(barbModo==='semana') return dias.includes(a.data);
+    return (a.data||'').startsWith(barbFiltro.slice(0,7));
+  };
+  const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
+  const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(a.createdAt||0)>ultimoPagto);
+  const agsPag = ags.filter(a=>!a.ePacote);
+  const receita = agsPag.reduce((s,a)=>s+(a.preco||servicoPreco(a.servico)||0),0);
+  const pct = parseFloat(com[b])||0;
+  const comissao = receita*pct/100;
+  const periodo = barbPeriodoLabel();
+  const barbearia = state.config.barbearia?.nome||'Barbearia';
+  const agrupado = {};
+  agsPag.forEach(a=>{
+    const preco = a.preco||servicoPreco(a.servico)||0;
+    if(!agrupado[a.servico]) agrupado[a.servico]={qtd:0,total:0};
+    agrupado[a.servico].qtd++;
+    agrupado[a.servico].total+=preco;
+  });
+  const linhasDetalhes = agsPag
+    .slice()
+    .sort((a,x)=>a.data>x.data?1:-1)
+    .map(a=>{
+      const preco = a.preco||servicoPreco(a.servico)||0;
+      return `<tr>
+        <td>${fmtDate(a.data)}</td>
+        <td>${esc(a.hora||'—')}</td>
+        <td>${esc(a.clienteNome||'—')}</td>
+        <td>${esc(a.servico||'—')}</td>
+        <td style="text-align:right;font-weight:600;color:#16a34a">${fmtMoney(preco)}</td>
+      </tr>`;
+    }).join('');
+  const linhasResumo = Object.entries(agrupado).map(([serv,d])=>`<tr>
+    <td>${esc(serv)}</td>
+    <td style="text-align:center">${d.qtd}x</td>
+    <td style="text-align:right;font-weight:600">${fmtMoney(d.total)}</td>
+  </tr>`).join('');
+  const html=`<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relatório — ${esc(b)}</title>
+<style>
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f9f9f9;color:#1a1a1a;margin:0;padding:24px}
+  .wrap{max-width:700px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+  h1{font-size:22px;margin:0 0 2px}
+  .sub{color:#666;font-size:13px;margin-bottom:24px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+  .c{background:#f3f4f6;border-radius:8px;padding:14px;text-align:center}
+  .c .lbl{font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+  .c .val{font-size:20px;font-weight:700}
+  .c.gold .val{color:#b45309}
+  .c.green .val{color:#16a34a}
+  .c.amber .val{color:#d97706}
+  h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:28px}
+  th{background:#f3f4f6;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}
+  td{padding:8px 10px;border-bottom:1px solid #f0f0f0}
+  tr:last-child td{border-bottom:none}
+  .total-row td{font-weight:700;background:#fafafa;border-top:2px solid #e5e7eb}
+  .footer{margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
+  @media print{body{background:#fff;padding:0}.wrap{box-shadow:none;border-radius:0;padding:20px}}
+</style></head><body>
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+    <div>
+      <h1>💈 ${esc(b)}</h1>
+      <div class="sub">${esc(barbearia)} · ${esc(periodo)}</div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#9ca3af">Gerado em<br><strong>${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</strong></div>
+  </div>
+  <div class="cards">
+    <div class="c"><div class="lbl">Atendimentos</div><div class="val">${agsPag.length}</div></div>
+    <div class="c green"><div class="lbl">Receita Bruta</div><div class="val">${fmtMoney(receita)}</div></div>
+    <div class="c amber"><div class="lbl">Comissão (${pct}%)</div><div class="val">${fmtMoney(comissao)}</div></div>
+  </div>
+  <h2>Resumo por Serviço</h2>
+  <table>
+    <thead><tr><th>Serviço</th><th style="text-align:center">Qtd</th><th style="text-align:right">Total</th></tr></thead>
+    <tbody>${linhasResumo}</tbody>
+    <tfoot><tr class="total-row"><td>Total</td><td style="text-align:center">${agsPag.length}x</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
+  </table>
+  <h2>Detalhes dos Atendimentos</h2>
+  <table>
+    <thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Serviço</th><th style="text-align:right">Valor</th></tr></thead>
+    <tbody>${linhasDetalhes||'<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Nenhum atendimento no período</td></tr>'}</tbody>
+    <tfoot><tr class="total-row"><td colspan="4">Total Geral</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
+  </table>
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:13px">
+    <strong>💰 Comissão a pagar:</strong> ${pct}% sobre ${fmtMoney(receita)} = <strong style="color:#d97706;font-size:15px">${fmtMoney(comissao)}</strong>
+    <div style="font-size:11px;color:#92400e;margin-top:4px">Calculado sobre o faturamento bruto, sem desconto de taxa de maquininha.</div>
+  </div>
+  <div class="footer">${esc(barbearia)} · Relatório gerado pelo sistema Na Régua</div>
+</div>
+</body></html>`;
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank');
+  if(!w){
+    const a=document.createElement('a');
+    a.href=url; a.download=`comissao_${b.replace(/\s+/g,'_')}_${barbFiltro.slice(0,7)}.html`;
+    a.click();
+  }
 }
 
 /* ============ PACOTES MENSAIS ============ */

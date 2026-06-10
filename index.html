@@ -1295,15 +1295,10 @@ function modalHist(id){
 }
 
 /* ============ BARBEIROS ============ */
-let barbFiltro=todayStr(), barbModo='mes';
-function barbNavDate(dir){
-  const d=parseLocalDate(barbFiltro); const D=new Date(d);
-  if(barbModo==='dia'){D.setDate(D.getDate()+dir);}
-  else if(barbModo==='semana'){D.setDate(D.getDate()+dir*7);}
-  else if(barbModo==='mes'){D.setMonth(D.getMonth()+dir);}
-  return toISO(D);
-}
+let barbFiltro=todayStr(), barbModo='periodo', barbFiltroInicio=todayStr().slice(0,8)+'01', barbFiltroFim=todayStr();
+function barbNavDate(dir){ return barbFiltro; }
 function barbPeriodoLabel(){
+  if(barbModo==='periodo') return `${fmtDate(barbFiltroInicio)} – ${fmtDate(barbFiltroFim)}`;
   if(barbModo==='dia') return fmtDate(barbFiltro);
   if(barbModo==='semana'){ const w=weekDays(barbFiltro); return `${fmtDate(w[0])} – ${fmtDate(w[6])}`; }
   return new Date(barbFiltro+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
@@ -1313,20 +1308,29 @@ function viewBarbeiros(){
   const com=state.config.comissoes||{};
   const dias=barbModo==='semana'?weekDays(barbFiltro):[];
   const filtroAg=a=>{
+    if(barbModo==='periodo') return (a.data||'')>=barbFiltroInicio&&(a.data||'')<=barbFiltroFim;
     if(barbModo==='dia') return a.data===barbFiltro;
     if(barbModo==='semana') return dias.includes(a.data);
     return (a.data||'').startsWith(barbFiltro.slice(0,7));
   };
-  const modos=[['dia','Dia'],['semana','Semana'],['mes','Mês']];
-  return `
+  const modos=[['periodo','Período'],['dia','Dia'],['semana','Semana'],['mes','Mês']];  return `
     <div class="sec-head"><div><h1>Barbeiros</h1><p>Produção e comissões por período</p></div></div>
     <div class="tabs" style="margin-bottom:12px">${modos.map(([id,l])=>`<button class="tab ${barbModo===id?'active':''}" onclick="barbModo='${id}';render()">${l}</button>`).join('')}</div>
+    ${barbModo==='periodo'?`
+    <div class="card" style="padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Selecionar período</div>
+      <div class="row2">
+        <div class="field"><label class="lbl">De</label><input type="date" class="inp" value="${barbFiltroInicio}" onchange="barbFiltroInicio=this.value;render()"></div>
+        <div class="field"><label class="lbl">Até</label><input type="date" class="inp" value="${barbFiltroFim}" onchange="barbFiltroFim=this.value;render()"></div>
+      </div>
+      <div style="font-size:12px;color:var(--gold);font-weight:600;text-align:center">${barbPeriodoLabel()}</div>
+    </div>`:`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
       <button class="btn btn-sm" onclick="barbFiltro='${barbNavDate(-1)}';render()">‹</button>
       <span style="font-size:13px;font-weight:600;color:var(--gold);flex:1;text-align:center">${barbPeriodoLabel()}</span>
       ${barbModo==='dia'?`<input type="date" class="inp" style="max-width:140px" value="${barbFiltro}" onchange="barbFiltro=this.value;render()">`:barbModo==='mes'?`<input type="month" class="inp" style="max-width:140px" value="${barbFiltro.slice(0,7)}" onchange="barbFiltro=this.value+'-01';render()">`:``}
       <button class="btn btn-sm" onclick="barbFiltro='${barbNavDate(1)}';render()">›</button>
-    </div>
+    </div>`}
     ${barbs.length?barbs.map(b=>{
       const ultimoPagto = (state.config.comissoesPagas||{})[b] || 0;
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(ultimoPagto===0||(a.createdAt||0)>ultimoPagto));
@@ -1370,8 +1374,9 @@ function viewBarbeiros(){
     }).join(''):`<div class="card empty">${ICON.cut(36,'#252525')}<p>Nenhum barbeiro cadastrado</p><button class="btn btn-primary" onclick="cfgTab='barbearia';setView('configuracoes')">Cadastrar Barbeiro</button></div>`}`;
 }function gerarRelatorioBarbeiro(b){
   const com = state.config.comissoes||{};
-  const dias = barbModo==='semana'?weekDays(barbFiltro):[];
+ const dias = barbModo==='semana'?weekDays(barbFiltro):[];
   const filtroAg = a=>{
+    if(barbModo==='periodo') return (a.data||'')>=barbFiltroInicio&&(a.data||'')<=barbFiltroFim;
     if(barbModo==='dia') return a.data===barbFiltro;
     if(barbModo==='semana') return dias.includes(a.data);
     return (a.data||'').startsWith(barbFiltro.slice(0,7));

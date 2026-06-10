@@ -245,14 +245,14 @@ try{ auth = firebase.auth(); }catch(e){ console.warn('Auth init:', e); }
 
 function getUsuarioLogado(){ return currentUser; }
 function isDono(){ return currentRole === 'dono'; }
-function isFuncionario(){ return currentRole === 'funcionario'; }
+function isFuncionario(){ return currentRole !== null && currentRole !== 'dono'; }
 
 async function carregarRole(uid){
   try{
     const doc = await db.collection('usuarios').doc(uid).get();
     if(doc.exists) return doc.data().role || 'funcionario';
   }catch(e){}
-  return 'funcionario';
+  return 'dono';
 }
 
 if(auth){

@@ -206,11 +206,13 @@
   </main>
 </div>
 <div id="modal-root"></div>
+<div id="auth-root"></div>
 <div id="pin-overlay"></div>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
 <script>
 /* ============ STORAGE (localStorage com fallback em memória) ============ */
@@ -234,6 +236,40 @@ try{
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
 }catch(e){ console.warn('Firebase init:', e); }
+  /* ============ AUTH ============ */
+let auth = null;
+let currentUser = null;
+let currentRole = null; // 'dono' ou 'funcionario'
+
+try{ auth = firebase.auth(); }catch(e){ console.warn('Auth init:', e); }
+
+function getUsuarioLogado(){ return currentUser; }
+function isDono(){ return currentRole === 'dono'; }
+function isFuncionario(){ return currentRole === 'funcionario'; }
+
+async function carregarRole(uid){
+  try{
+    const doc = await db.collection('usuarios').doc(uid).get();
+    if(doc.exists) return doc.data().role || 'funcionario';
+  }catch(e){}
+  return 'funcionario';
+}
+
+if(auth){
+  auth.onAuthStateChanged(async user => {
+    currentUser = user;
+    if(user){
+      currentRole = await carregarRole(user.uid);
+      document.getElementById('auth-root').innerHTML = '';
+      boot();
+    } else {
+      currentRole = null;
+      mostrarTelaLogin();
+    }
+  });
+} else {
+  boot();
+}
 
 /* ============ SUPABASE (NUVEM ALTERNATIVA — opcional) ============ */
 // Após criar sua conta no supabase.com, cole aqui o URL e a chave anon do seu projeto:
@@ -639,11 +675,14 @@ function render(){
     renderNav();
     const el=document.getElementById('view');
     if(!el) return;
+    if(isFuncionario() && !['agenda','dashboard'].includes(state.view)){
+      state.view = 'agenda';
+    }
     el.innerHTML=({
       dashboard:viewDashboard, agenda:viewAgenda, lembretes:viewLembretes, clientes:viewClientes,
       financeiro:viewFinanceiro, produtos:viewProdutos, barbeiros:viewBarbeiros,
       pacotes:viewPacotes, configuracoes:viewConfig,
-    }[state.view]||viewDashboard)();
+    }[state.view]||viewAgenda)();
     atualizarBadgeLembretes();
   }catch(e){
     console.error('render error:',e);
@@ -1720,6 +1759,10 @@ function viewConfig(){
   const cfg=state.config;
   if(cfgTab==='barbearia'){
     body=`<div class="card">
+    ${isDono()?`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+  <button class="btn btn-primary" onclick="modalCadastrarFuncionario()">+ Cadastrar Funcionário</button>
+  <button class="btn btn-red" onclick="fazerLogout()">🚪 Sair do sistema</button>
+</div>`:`<div style="margin-bottom:16px"><button class="btn btn-red" onclick="fazerLogout()">🚪 Sair do sistema</button></div>`}
       <h3 style="font-size:14px;margin-bottom:14px">Dados</h3>
       <div class="field"><label class="lbl">Nome da Barbearia</label><input class="inp" value="${esc(cfg.barbearia.nome)}" onchange="cfg_set('barbearia.nome',this.value)"></div>
       <div class="field"><label class="lbl">Endereço</label><input class="inp" value="${esc(cfg.barbearia.endereco)}" placeholder="Endereço completo" onchange="cfg_set('barbearia.endereco',this.value)"></div>
@@ -1839,7 +1882,18 @@ function viewConfig(){
   return `<div class="sec-head"><div><h1>Configurações</h1><p>Personalize o sistema da sua barbearia</p></div></div>
     <div class="tabs">${tabs.map(([id,l])=>`<button class="tab ${cfgTab===id?'active':''}" onclick="cfgTab='${id}';render()">${l}</button>`).join('')}</div>
     ${cfgTab==='nuvem'?`<div class="card">
-      <h3 style="font-size:14px;margin-bottom:6px">☁️ Nuvem</h3>      </div>
+      <h3 style="font-size:14px;margin-bottom:6px">☁️ Supabase (recomendado)</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Gratuito para sempre, sem regras que expiram. Seus dados ficam na nuvem e são recuperáveis em qualquer dispositivo.</p>
+      <div style="background:var(--inner);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);margin-bottom:14px;line-height:1.8">
+        <strong style="color:var(--gold);display:block;margin-bottom:6px">Como configurar (5 minutos):</strong>
+        1️⃣ Acesse <a href="https://supabase.com" target="_blank" style="color:var(--gold)">supabase.com</a> → crie conta gratuita<br>
+        2️⃣ Crie um novo projeto → aguarde inicializar<br>
+        3️⃣ No menu lateral → <strong>SQL Editor</strong> → cole e execute:<br>
+        <code style="display:block;background:#1A1A1A;padding:8px;border-radius:6px;margin:6px 0;font-size:11px;color:#A3E635">CREATE TABLE dados (id TEXT PRIMARY KEY, valor JSONB);<br>ALTER TABLE dados ENABLE ROW LEVEL SECURITY;<br>CREATE POLICY "public" ON dados FOR ALL USING (true) WITH CHECK (true);</code>
+        4️⃣ Vá em <strong>Settings → API</strong><br>
+        5️⃣ Copie o <strong>Project URL</strong> e a chave <strong>anon public</strong><br>
+        6️⃣ Cole nos campos abaixo e faça o deploy no GitHub
+      </div>
       <div class="field"><label class="lbl">Status atual</label>
         <div style="padding:8px 12px;border-radius:7px;font-size:12px;background:${db?'var(--green-bg)':(SB_URL&&SB_URL.length>10?'var(--green-bg)':'#1A1A1A')};color:${db?'var(--green)':(SB_URL&&SB_URL.length>10?'var(--green)':'var(--text-3)')}">
           ${db?'✅ Firebase conectado e ativo':(SB_URL&&SB_URL.length>10?'✅ Supabase ativo':'⚠️ Sem nuvem configurada — dados apenas no dispositivo')}
@@ -1991,7 +2045,79 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
   const sino=document.querySelector('#btn-sino'); if(sino&&!sino.querySelector('svg'))sino.insertAdjacentHTML('afterbegin',ICON.bell(20,'#C9A84C'));
   const novo=document.querySelector('#btn-novo'); if(novo)novo.innerHTML=ICON.plus(20,'#C9A84C');
 })();
+/* ============ TELA DE LOGIN ============ */
+function mostrarTelaLogin(erro){
+  document.getElementById('auth-root').innerHTML = `
+    <div style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px">
+      <div style="width:100%;max-width:360px">
+        <div style="text-align:center;margin-bottom:32px">
+          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;margin:0 auto 14px">${ICON.scissors(28,'#0A0A0A')}</div>
+          <h1 style="font-size:22px;font-weight:700">${esc(state.config?.barbearia?.nome||'Barbearia Ceribelli')}</h1>
+          <p style="font-size:13px;color:var(--text-3);margin-top:4px">Faça login para continuar</p>
+        </div>
+        ${erro?`<div style="padding:10px 14px;background:var(--red-bg);border:1px solid var(--red);border-radius:8px;font-size:12px;color:var(--red);margin-bottom:16px">${erro}</div>`:''}
+        <div class="field"><label class="lbl">Email</label><input id="auth-email" type="email" class="inp" placeholder="seu@email.com" autocomplete="email"></div>
+        <div class="field"><label class="lbl">Senha</label><input id="auth-senha" type="password" class="inp" placeholder="Sua senha" autocomplete="current-password"></div>
+        <button class="btn btn-primary" style="width:100%;padding:12px;font-size:14px;margin-top:4px" onclick="fazerLogin()">Entrar</button>
+        <p style="text-align:center;font-size:12px;color:var(--text-3);margin-top:16px">Não tem acesso? Peça ao dono da barbearia.</p>
+      </div>
+    </div>`;
+  setTimeout(()=>{ const e=document.getElementById('auth-email'); if(e) e.focus(); },100);
+}
 
+async function fazerLogin(){
+  const email = document.getElementById('auth-email').value.trim();
+  const senha = document.getElementById('auth-senha').value;
+  if(!email||!senha){ mostrarTelaLogin('Preencha email e senha.'); return; }
+  try{
+    await auth.signInWithEmailAndPassword(email, senha);
+  } catch(e){
+    const msgs = {
+      'auth/user-not-found':'Email não cadastrado.',
+      'auth/wrong-password':'Senha incorreta.',
+      'auth/invalid-email':'Email inválido.',
+      'auth/too-many-requests':'Muitas tentativas. Aguarde alguns minutos.',
+    };
+    mostrarTelaLogin(msgs[e.code]||'Erro ao entrar. Tente novamente.');
+  }
+}
+
+async function fazerLogout(){
+  if(!confirm('Sair do sistema?')) return;
+  await auth.signOut();
+}
+
+/* ============ CADASTRO DE FUNCIONÁRIO (pelo dono) ============ */
+async function modalCadastrarFuncionario(){
+  openModal(`
+    <div class="modal-head"><h2>Cadastrar Funcionário</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <p style="font-size:12px;color:var(--text-2);margin-bottom:16px">O funcionário receberá acesso apenas à Agenda.</p>
+    <div class="field"><label class="lbl">Nome</label><input id="fn-nome" class="inp" placeholder="Nome do funcionário"></div>
+    <div class="field"><label class="lbl">Email</label><input id="fn-email" type="email" class="inp" placeholder="email@exemplo.com"></div>
+    <div class="field"><label class="lbl">Senha inicial</label><input id="fn-senha" type="password" class="inp" placeholder="Mínimo 6 caracteres"></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="criarFuncionario()">Cadastrar</button></div>
+  `);
+}
+
+async function criarFuncionario(){
+  const nome = document.getElementById('fn-nome').value.trim();
+  const email = document.getElementById('fn-email').value.trim();
+  const senha = document.getElementById('fn-senha').value;
+  if(!nome||!email||senha.length<6){ alert('Preencha todos os campos. Senha mínimo 6 caracteres.'); return; }
+  try{
+    // cria o usuário sem deslogar o dono
+    const resp = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email, password:senha, returnSecureToken:true})
+    });
+    const data = await resp.json();
+    if(data.error){ alert('Erro: '+(data.error.message||'Tente novamente.')); return; }
+    // salva o role no Firestore
+    await db.collection('usuarios').doc(data.localId).set({ nome, email, role:'funcionario', criadoEm: Date.now() });
+    closeModal();
+    alert(`✅ Funcionário ${nome} cadastrado!\nEle já pode entrar com o email e senha definidos.`);
+  } catch(e){ alert('Erro ao cadastrar: '+e.message); }
+}
 /* ============ INIT ============ */
 async function boot(){
   migrarDados();

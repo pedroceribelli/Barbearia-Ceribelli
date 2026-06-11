@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#C9A84C">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1455,6 +1455,17 @@ function viewBarbeiros(){
   .total-row td{font-weight:700;background:#fafafa;border-top:2px solid #e5e7eb}
   .footer{margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
   @media print{body{background:#fff;padding:0}.wrap{box-shadow:none;border-radius:0;padding:20px}}
+  @media (max-width:600px){
+    body{padding:10px}
+    .wrap{padding:18px 14px;border-radius:8px}
+    h1{font-size:17px}
+    .cards{grid-template-columns:1fr 1fr;gap:8px}
+    .cards .c:last-child{grid-column:1/-1}
+    .c .val{font-size:17px}
+    table{font-size:11px}
+    th,td{padding:6px 6px}
+    th:nth-child(3),td:nth-child(3){display:none} /* oculta coluna Cliente em telas pequenas */
+  }
 </style></head><body>
 <div class="wrap">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
@@ -1698,7 +1709,10 @@ function viewFinanceiro(){
   const showNav=finModo!=='tudo';
   return `
     <div class="sec-head"><div><h1>Financeiro</h1><p>Controle de entradas e saídas</p></div>
-      <button class="btn btn-primary" onclick="modalLanc()">+ Novo Lançamento</button></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-sm" onclick="gerarRelatorioFinanceiro()" style="border-color:var(--gold);color:var(--gold)">📄 Relatório</button>
+        <button class="btn btn-primary" onclick="modalLanc()">+ Novo Lançamento</button>
+      </div></div>
     <div class="tabs" style="margin-bottom:12px">${modos.map(([id,l])=>`<button class="tab ${finModo===id?'active':''}" onclick="finModo='${id}';render()">${l}</button>`).join('')}</div>
     ${finModo==='dia'?`<input type="date" class="inp" style="max-width:180px;margin-bottom:14px" value="${finFiltro}" onchange="finFiltro=this.value;render()">`:
       finModo==='mes'?`<input type="month" class="inp" style="max-width:180px;margin-bottom:14px" value="${finFiltro.slice(0,7)}" onchange="finFiltro=this.value+'-01';render()">`:
@@ -1742,6 +1756,140 @@ function viewFinanceiro(){
     </div>`:''}`;
 }
 function delLanc(id){ if(confirm('Remover lançamento?')){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); render(); } }
+
+function gerarRelatorioFinanceiro(){
+  const lista = finLista().slice().sort((a,b)=>{
+    const cmp = (a.data||'').localeCompare(b.data||'');
+    return cmp !== 0 ? cmp : (a.createdAt||0)-(b.createdAt||0);
+  });
+  const ent = lista.filter(l=>l.tipo==='entrada').reduce((s,l)=>s+(l.valorLiquido??l.valor),0);
+  const sai = lista.filter(l=>l.tipo==='saida').reduce((s,l)=>s+l.valor,0);
+  const saldo = ent-sai;
+  const fps=['pix','dinheiro','debito','credito'];
+  const fpLabels={pix:'Pix',dinheiro:'Dinheiro',debito:'Débito',credito:'Crédito'};
+  const fpColors={pix:'#10B981',dinheiro:'#3B82F6',debito:'#8B5CF6',credito:'#F59E0B'};
+  const entFP = fps.map(fp=>({fp,v:lista.filter(l=>l.tipo==='entrada'&&l.formaPagamento===fp).reduce((s,l)=>s+(l.valorLiquido??l.valor),0)})).filter(x=>x.v>0);
+  const catSai = {};
+  lista.filter(l=>l.tipo==='saida').forEach(l=>{ const c=l.categoria||'Outros'; catSai[c]=(catSai[c]||0)+l.valor; });
+  const barbearia = state.config.barbearia?.nome||'Barbearia';
+  const periodo = periodoLabel();
+
+  const linhasLanc = lista.map(l=>{
+    const isInfoPacote = l.origem==='pacote_informativo';
+    const valorExib = isInfoPacote?'—':((l.tipo==='entrada'?'+':'-')+fmtMoney(l.tipo==='entrada'?(l.valorLiquido??l.valor):l.valor));
+    const taxa = (!isInfoPacote&&l.tipo==='entrada'&&(l.formaPagamento==='debito'||l.formaPagamento==='credito'))?(l.valor-(l.valorLiquido??l.valor)):0;
+    const cor = isInfoPacote?'#60A5FA':l.tipo==='entrada'?'#16a34a':'#dc2626';
+    return `<tr>
+      <td>${fmtDate(l.data)}</td>
+      <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${l.tipo==='entrada'?'#dcfce7':'#fee2e2'};color:${l.tipo==='entrada'?'#16a34a':'#dc2626'}">${l.tipo==='entrada'?'ENTRADA':'SAÍDA'}</span></td>
+      <td>${esc(l.descricao||'—')}</td>
+      <td>${esc(l.categoria||'—')}</td>
+      <td>${isInfoPacote?'📦 Pacote':fpLabels[l.formaPagamento]||l.formaPagamento||'—'}</td>
+      <td style="text-align:right">${taxa>0.001?`<span style="font-size:10px;color:#d97706">Bruto: ${fmtMoney(l.valor)}<br>Taxa: -${fmtMoney(taxa)}</span>`:''}</td>
+      <td style="text-align:right;font-weight:700;color:${cor}">${valorExib}</td>
+    </tr>`;
+  }).join('');
+
+  const linhasCatSai = Object.entries(catSai).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${esc(c)}</td><td style="text-align:right;color:#dc2626;font-weight:600">-${fmtMoney(v)}</td></tr>`).join('');
+  const linhasEntFP = entFP.map(x=>`<tr><td>${fpLabels[x.fp]||x.fp}</td><td style="text-align:right;color:#16a34a;font-weight:600">+${fmtMoney(x.v)}</td></tr>`).join('');
+
+  const html=`<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relatório Financeiro — ${esc(barbearia)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f9f9f9;color:#1a1a1a;padding:24px}
+  .wrap{max-width:780px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+  h1{font-size:22px;margin-bottom:2px}
+  .sub{color:#666;font-size:13px;margin-bottom:24px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px}
+  .kpi{background:#f3f4f6;border-radius:8px;padding:14px;text-align:center}
+  .kpi .lbl{font-size:11px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+  .kpi .val{font-size:20px;font-weight:700}
+  .kpi.green .val{color:#16a34a}.kpi.red .val{color:#dc2626}.kpi.blue .val{color:#2563eb}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px}
+  h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:28px}
+  th{background:#f3f4f6;padding:8px 10px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}
+  td{padding:7px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .total-row td{font-weight:700;background:#fafafa;border-top:2px solid #e5e7eb}
+  .footer{margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
+  @media print{body{background:#fff;padding:0}.wrap{box-shadow:none;border-radius:0;padding:20px}}
+  @media(max-width:600px){
+    body{padding:8px}
+    .wrap{padding:14px 10px}
+    h1{font-size:17px}
+    .kpis{grid-template-columns:1fr 1fr}
+    .kpis .kpi:last-child{grid-column:1/-1}
+    .kpi .val{font-size:16px}
+    .split{grid-template-columns:1fr}
+    table{font-size:11px}
+    th,td{padding:5px 5px}
+    /* oculta colunas menos essenciais no mobile */
+    th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}
+  }
+</style></head><body>
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+    <div>
+      <h1>💰 Relatório Financeiro</h1>
+      <div class="sub">${esc(barbearia)} · ${esc(periodo)}</div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#9ca3af">Gerado em<br><strong>${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</strong></div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi green"><div class="lbl">Entradas</div><div class="val">+${fmtMoney(ent)}</div></div>
+    <div class="kpi red"><div class="lbl">Saídas</div><div class="val">-${fmtMoney(sai)}</div></div>
+    <div class="kpi ${saldo>=0?'green':'red'}"><div class="lbl">Saldo</div><div class="val">${saldo>=0?'+':''}${fmtMoney(saldo)}</div></div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h2>Entradas por pagamento</h2>
+      <table>
+        <thead><tr><th>Forma</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>${linhasEntFP||'<tr><td colspan="2" style="text-align:center;color:#9ca3af">—</td></tr>'}</tbody>
+        <tfoot><tr class="total-row"><td>Total</td><td style="text-align:right;color:#16a34a">+${fmtMoney(ent)}</td></tr></tfoot>
+      </table>
+    </div>
+    <div>
+      <h2>Saídas por categoria</h2>
+      <table>
+        <thead><tr><th>Categoria</th><th style="text-align:right">Total</th></tr></thead>
+        <tbody>${linhasCatSai||'<tr><td colspan="2" style="text-align:center;color:#9ca3af">—</td></tr>'}</tbody>
+        <tfoot><tr class="total-row"><td>Total</td><td style="text-align:right;color:#dc2626">-${fmtMoney(sai)}</td></tr></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <h2>Lançamentos em ordem cronológica</h2>
+  <table>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th>Taxa</th><th style="text-align:right">Valor Líquido</th></tr></thead>
+    <tbody>${linhasLanc||'<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Nenhum lançamento no período</td></tr>'}</tbody>
+    <tfoot>
+      <tr class="total-row"><td colspan="6">Total Entradas (líquido)</td><td style="text-align:right;color:#16a34a">+${fmtMoney(ent)}</td></tr>
+      <tr class="total-row"><td colspan="6">Total Saídas</td><td style="text-align:right;color:#dc2626">-${fmtMoney(sai)}</td></tr>
+      <tr class="total-row"><td colspan="6">Saldo do Período</td><td style="text-align:right;color:${saldo>=0?'#16a34a':'#dc2626'};font-size:15px">${saldo>=0?'+':''}${fmtMoney(saldo)}</td></tr>
+    </tfoot>
+  </table>
+
+  <div class="footer">${esc(barbearia)} · Relatório Financeiro gerado pelo sistema Na Régua</div>
+</div>
+</body></html>`;
+
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const w=window.open(url,'_blank');
+  if(!w){
+    const a=document.createElement('a');
+    a.href=url; a.download=`financeiro_${periodoLabel().replace(/\s/g,'_').replace(/[\/–]/g,'-')}.html`;
+    a.click();
+  }
+}
+
 let lancTmp={tipo:'entrada',formaPagamento:'pix'};
 const CATS_SAIDA=['Aluguel','Água/Luz/Internet','Material','Produto/Estoque','Salário','Manutenção','Alimentação','Impostos','Outros'];
 function modalLanc(tipoInicial){

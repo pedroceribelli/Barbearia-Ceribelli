@@ -1334,8 +1334,7 @@ function viewBarbeiros(){
     </div>`}
     ${barbs.length?barbs.map(b=>{
       const ultimoPagto = (state.config.comissoesPagas||{})[b] || 0;
-           const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(ultimoPagto===0||a.data>toISO(new Date(ultimoPagto))));
-));
+      const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
       const agsPag=ags.filter(a=>!a.ePacote);
       const agsPac=ags.filter(a=>a.ePacote);
       const receita=agsPag.reduce((s,a)=>{
@@ -1384,7 +1383,7 @@ function viewBarbeiros(){
     return (a.data||'').startsWith(barbFiltro.slice(0,7));
   };
   const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
-  const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a)&&(ultimoPagto===0||a.data>toISO(new Date(ultimoPagto))));
+  const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
   const agsPag = ags.filter(a=>!a.ePacote);
   const receita = agsPag.reduce((s,a)=>{
     const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;

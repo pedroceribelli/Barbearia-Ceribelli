@@ -832,8 +832,8 @@ function modalAgenda(id){
       <div class="field"><label class="lbl">Nome do Cliente</label><input id="m-nome" class="inp" value="${esc(a.clienteNome)}" placeholder="Nome completo"></div>
       <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
     </div>
-    <div class="row2"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" value="${a.data}" onchange="ajustarHoraMin()"></div>
-      <div class="field"><label class="lbl">Hora</label><input id="m-hora" type="time" class="inp" value="${a.hora}"></div></div>
+    <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
+      <div class="field"><label class="lbl">Hora</label><input id="m-hora" type="time" class="inp" style="max-width:100%;min-width:0" value="${a.hora}"></div></div>
     <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Status</label><select id="m-status" class="inp">${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select></div>
@@ -1320,9 +1320,9 @@ function viewBarbeiros(){
     ${barbModo==='periodo'?`
     <div class="card" style="padding:14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Selecionar período</div>
-      <div class="row2">
-        <div class="field"><label class="lbl">De</label><input type="date" class="inp" value="${barbFiltroInicio}" onchange="barbFiltroInicio=this.value;render()"></div>
-        <div class="field"><label class="lbl">Até</label><input type="date" class="inp" value="${barbFiltroFim}" onchange="barbFiltroFim=this.value;render()"></div>
+      <<div class="row2" style="overflow:hidden">
+        <div class="field"><label class="lbl">De</label><input type="date" class="inp" style="max-width:100%;min-width:0" value="${barbFiltroInicio}" onchange="barbFiltroInicio=this.value;render()"></div>
+        <div class="field"><label class="lbl">Até</label><input type="date" class="inp" style="max-width:100%;min-width:0" value="${barbFiltroFim}" onchange="barbFiltroFim=this.value;render()"></div>
       </div>
       <div style="font-size:12px;color:var(--gold);font-weight:600;text-align:center">${barbPeriodoLabel()}</div>
     </div>`:`
@@ -1779,10 +1779,12 @@ function gerarRelatorioFinanceiro(){
     const valorExib = isInfoPacote?'—':((l.tipo==='entrada'?'+':'-')+fmtMoney(l.tipo==='entrada'?(l.valorLiquido??l.valor):l.valor));
     const taxa = (!isInfoPacote&&l.tipo==='entrada'&&(l.formaPagamento==='debito'||l.formaPagamento==='credito'))?(l.valor-(l.valorLiquido??l.valor)):0;
     const cor = isInfoPacote?'#60A5FA':l.tipo==='entrada'?'#16a34a':'#dc2626';
+    const barbLanc = (() => { const ag = state.agendamentos.find(a=>a.lancamentoId===l.id); return ag?.barbeiro||''; })();
     return `<tr>
       <td>${fmtDate(l.data)}</td>
       <td><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${l.tipo==='entrada'?'#dcfce7':'#fee2e2'};color:${l.tipo==='entrada'?'#16a34a':'#dc2626'}">${l.tipo==='entrada'?'ENTRADA':'SAÍDA'}</span></td>
       <td>${esc(l.descricao||'—')}</td>
+      <td>${esc(barbLanc||'—')}</td>
       <td>${esc(l.categoria||'—')}</td>
       <td>${isInfoPacote?'📦 Pacote':fpLabels[l.formaPagamento]||l.formaPagamento||'—'}</td>
       <td style="text-align:right">${taxa>0.001?`<span style="font-size:10px;color:#d97706">Bruto: ${fmtMoney(l.valor)}<br>Taxa: -${fmtMoney(taxa)}</span>`:''}</td>
@@ -1828,8 +1830,8 @@ function gerarRelatorioFinanceiro(){
     table{font-size:11px}
     th,td{padding:5px 5px}
     /* oculta colunas menos essenciais no mobile */
-    th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}
-  }
+    table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5),th:nth-child(6),td:nth-child(6){display:none}
 </style></head><body>
 <div class="wrap">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:10px">
@@ -1867,7 +1869,7 @@ function gerarRelatorioFinanceiro(){
 
   <h2>Lançamentos em ordem cronológica</h2>
   <table>
-    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th>Taxa</th><th style="text-align:right">Valor Líquido</th></tr></thead>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Barbeiro</th><th>Categoria</th><th>Pagamento</th><th>Taxa</th><th style="text-align:right">Valor Líquido</th></tr></thead>
     <tbody>${linhasLanc||'<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Nenhum lançamento no período</td></tr>'}</tbody>
     <tfoot>
       <tr class="total-row"><td colspan="6">Total Entradas (líquido)</td><td style="text-align:right;color:#16a34a">+${fmtMoney(ent)}</td></tr>

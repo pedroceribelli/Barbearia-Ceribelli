@@ -1409,7 +1409,7 @@ function viewBarbeiros(){
   });
   const linhasDetalhes = agsPag
     .slice()
-    .sort((a,x)=>a.data>x.data?1:-1)
+   .sort((a,x)=>`${a.data}${a.hora}`>`${x.data}${x.hora}`?1:-1)
     .map(a=>{
       const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
       const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);

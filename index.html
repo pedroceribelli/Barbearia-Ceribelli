@@ -1313,7 +1313,8 @@ function viewBarbeiros(){
     if(barbModo==='semana') return dias.includes(a.data);
     return (a.data||'').startsWith(barbFiltro.slice(0,7));
   };
-  const modos=[['periodo','Período'],['dia','Dia'],['semana','Semana'],['mes','Mês']];  return `
+  const modos=[['periodo','Período'],['dia','Dia'],['semana','Semana'],['mes','Mês']];  
+  return `
     <div class="sec-head"><div><h1>Barbeiros</h1><p>Produção e comissões por período</p></div></div>
     <div class="tabs" style="margin-bottom:12px">${modos.map(([id,l])=>`<button class="tab ${barbModo===id?'active':''}" onclick="barbModo='${id}';render()">${l}</button>`).join('')}</div>
     ${barbModo==='periodo'?`

@@ -831,7 +831,10 @@ function viewAgendaTimeline(){
   return `
     <div class="tabs" style="margin-bottom:0px"><button class="tab" onclick="agSubModo='lista';render()">📋 Lista</button><button class="tab active">⏱ Timeline</button></div>
     <div class="sec-head" style="margin-top:16px"><div><h1>Timeline</h1><p>${esc(agTimelineBarb||'Todos')} · ${fmtDate(data)}</p></div>
-      <button class="btn btn-amber btn-sm" onclick="modalWalkIn()" style="display:flex;align-items:center;gap:5px">${ICON.plus(14,'#F59E0B')} Walk-in</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-amber btn-sm" onclick="modalWalkIn()" style="display:flex;align-items:center;gap:5px">${ICON.plus(14,'#F59E0B')} Walk-in</button>
+        <button class="btn btn-primary" onclick="modalAgenda()">+ Novo Agendamento</button>
+      </div>
     </div>
     ${weekStrip()}
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
@@ -878,8 +881,9 @@ function delAgenda(id){
   }
 }
 /* ============ WALK-IN RÁPIDO ============ */
+let wiProdutos=[];
 function modalWalkIn(){
-  const dataDef=agFiltro||todayStr();
+  wiProdutos=[];
   openModal(`
     <div class="modal-head"><h2>⚡ Walk-in Rápido</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
     <div style="padding:9px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--amber)">
@@ -888,15 +892,32 @@ function modalWalkIn(){
     <div class="field"><label class="lbl">Nome (apelido ou "Cliente")</label><input id="wi-nome" class="inp" placeholder="Ex: João, Cliente, Anônimo..."></div>
     <div class="field"><label class="lbl">Serviço</label><select id="wi-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option>${esc(s.nome||s)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Barbeiro</label><select id="wi-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Produtos vendidos (opcional)</label>
+      <select id="wi-prod-sel" class="inp" onchange="addWiProduto()"><option value="">Selecione um produto para adicionar...</option>${state.produtos.slice().sort((x,y)=>x.nome.localeCompare(y.nome)).map(p=>`<option value="${p.id}">${esc(p.nome)} · ${fmtMoney(p.preco)}</option>`).join('')}</select>
+      <div id="wi-prod-list" style="margin-top:8px"></div>
+    </div>
     <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-amber" onclick="saveWalkIn()">Adicionar na Agenda</button></div>
   `);
+}
+function addWiProduto(){
+  const sel=document.getElementById('wi-prod-sel'); const p=state.produtos.find(x=>x.id===sel.value);
+  if(!p) return;
+  wiProdutos.push({id:p.id,nome:p.nome,preco:Number(p.preco)||0,custo:Number(p.custo)||0});
+  sel.value=''; renderWiProdutos();
+}
+function removeWiProduto(i){ wiProdutos.splice(i,1); renderWiProdutos(); }
+function renderWiProdutos(){
+  const box=document.getElementById('wi-prod-list'); if(!box) return;
+  box.innerHTML=wiProdutos.map((p,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--inner);border:1px solid var(--border);border-radius:7px;margin-bottom:6px;font-size:12px">
+    <span>${esc(p.nome)}</span><span style="display:flex;align-items:center;gap:10px"><span style="color:var(--gold)">${fmtMoney(p.preco)}</span><button onclick="removeWiProduto(${i})" style="background:none;border:none;color:var(--red);font-size:15px;cursor:pointer">×</button></span>
+  </div>`).join('');
 }
 function saveWalkIn(){
   const nome=(document.getElementById('wi-nome').value.trim())||'Walk-in';
   const servico=document.getElementById('wi-serv').value;
   const barbeiro=document.getElementById('wi-barb').value;
   if(!servico){alert('Selecione o serviço.');return;}
-  state.agendamentos.push({id:uid(),clienteNome:nome,clienteTelefone:'',servico,barbeiro,data:agFiltro||todayStr(),hora:horaAgora(),status:'agendado',obs:'',isWalkIn:true,createdAt:Date.now(),confirmacaoEnviada:false});
+  state.agendamentos.push({id:uid(),clienteNome:nome,clienteTelefone:'',servico,barbeiro,data:agFiltro||todayStr(),hora:horaAgora(),status:'agendado',obs:'',isWalkIn:true,wiProdutos:[...wiProdutos],createdAt:Date.now(),confirmacaoEnviada:false});
   save('agendamentos'); closeModal(); render();
 }
 function modalAgenda(id){
@@ -919,7 +940,7 @@ function modalAgenda(id){
       <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
     </div>
     <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
-      <div class="field"><label class="lbl">Hora</label><input id="m-hora" type="time" class="inp" style="max-width:100%;min-width:0" value="${a.hora}"></div></div>
+      <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora)}</select></div></div>
     <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Status</label><select id="m-status" class="inp">${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select></div>
@@ -930,11 +951,28 @@ function modalAgenda(id){
   setAgModo(agModo);
   ajustarHoraMin();
 }
-function horaAgora(){ const d=new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function horaAgora(){ const d=new Date(); const h=d.getHours(); const m=d.getMinutes()>=30?30:0; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
+function gerarSlotsHora(selecionado){
+  const slots=[];
+  for(let h=6;h<=23;h++){ slots.push(String(h).padStart(2,'0')+':00'); if(h<23) slots.push(String(h).padStart(2,'0')+':30'); }
+  return slots.map(s=>`<option value="${s}" ${s===selecionado?'selected':''}>${s}</option>`).join('');
+}
 function ajustarHoraMin(){
   const dataEl=document.getElementById('m-data'), horaEl=document.getElementById('m-hora');
   if(!dataEl||!horaEl) return;
-  if(dataEl.value===todayStr()) horaEl.min=horaAgora(); else horaEl.removeAttribute('min');
+  // para o select não precisamos de min, mas garantimos que data de hoje não selecione hora passada
+  if(dataEl.value===todayStr()){
+    const agora=horaAgora();
+    // se opção atual é passado, avança para próxima disponível
+    if(horaEl.value && horaEl.value < agora){
+      const primeiraValida=Array.from(horaEl.options).find(o=>o.value>=agora);
+      if(primeiraValida) horaEl.value=primeiraValida.value;
+    }
+    // desabilita opções passadas
+    Array.from(horaEl.options).forEach(o=>{ o.disabled=o.value<agora; });
+  } else {
+    Array.from(horaEl.options).forEach(o=>{ o.disabled=false; });
+  }
 }
 function setAgModo(m){
   agModo=m;

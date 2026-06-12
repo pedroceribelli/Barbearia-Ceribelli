@@ -320,7 +320,7 @@ async function cloudLoad(){
 const uid = () => Math.random().toString(36).slice(2,10);
 const fmtMoney = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; };
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const calcLiquido = (v,fp) => fp==='debito'?v*(1-state.config.taxaDebito/100):fp==='credito'?v*(1-state.config.taxaCredito/100):v;
 const fmtPayment = fp => ({pix:'Pix',dinheiro:'Dinheiro',debito:`Débito (−${state.config.taxaDebito}%)`,credito:`Crédito (−${state.config.taxaCredito}%)`}[fp]||fp);
@@ -939,7 +939,7 @@ function modalAgenda(id){
       <div class="field"><label class="lbl">Nome do Cliente</label><input id="m-nome" class="inp" value="${esc(a.clienteNome)}" placeholder="Nome completo"></div>
       <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
     </div>
-    <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
+    <div class="row2"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
       <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora, a.data)}</select></div></div>
     <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
@@ -1446,7 +1446,7 @@ function viewBarbeiros(){
     ${barbModo==='periodo'?`
     <div class="card" style="padding:14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Selecionar período</div>
-      <<div class="row2" style="overflow:hidden">
+      <div class="row2">
         <div class="field"><label class="lbl">De</label><input type="date" class="inp" style="max-width:100%;min-width:0" value="${barbFiltroInicio}" onchange="barbFiltroInicio=this.value;render()"></div>
         <div class="field"><label class="lbl">Até</label><input type="date" class="inp" style="max-width:100%;min-width:0" value="${barbFiltroFim}" onchange="barbFiltroFim=this.value;render()"></div>
       </div>

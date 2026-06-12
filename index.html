@@ -960,7 +960,8 @@ function gerarSlotsHora(selecionado, dataRef){
   const agora = ehHoje ? horaAgora() : '';
   let sel = selecionado;
   if(ehHoje && (!sel || sel < agora)) sel = proximoSlotDisponivel();
-  if(!sel) sel = ehHoje ? proximoSlotDisponivel() : '09:00';
+  if(!sel || (!ehHoje && !slots.includes(sel))) sel = '09:00';
+  if(!slots.includes(sel)) sel = slots[0];
   return slots.map(s=>{ const bloqueado=ehHoje&&s<agora; return `<option value="${s}" ${s===sel?'selected':''} ${bloqueado?'disabled':''}>${s}</option>`; }).join('');
 }
 function ajustarHoraMin(){

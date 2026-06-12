@@ -940,7 +940,7 @@ function modalAgenda(id){
       <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
     </div>
     <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
-      <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora)}</select></div></div>
+      <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora, a.data)}</select></div></div>
     <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Status</label><select id="m-status" class="inp">${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select></div>
@@ -952,26 +952,26 @@ function modalAgenda(id){
   ajustarHoraMin();
 }
 function horaAgora(){ const d=new Date(); const h=d.getHours(); const m=d.getMinutes()>=30?30:0; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
-function gerarSlotsHora(selecionado){
+function proximoSlotDisponivel(){ const agora=horaAgora(); const slots=[]; for(let h=6;h<=23;h++){ slots.push(String(h).padStart(2,'0')+':00'); if(h<23) slots.push(String(h).padStart(2,'0')+':30'); } return slots.find(s=>s>=agora)||'09:00'; }
+function gerarSlotsHora(selecionado, dataRef){
   const slots=[];
   for(let h=6;h<=23;h++){ slots.push(String(h).padStart(2,'0')+':00'); if(h<23) slots.push(String(h).padStart(2,'0')+':30'); }
-  return slots.map(s=>`<option value="${s}" ${s===selecionado?'selected':''}>${s}</option>`).join('');
+  const ehHoje = dataRef===todayStr();
+  const agora = ehHoje ? horaAgora() : '';
+  let sel = selecionado;
+  if(ehHoje && (!sel || sel < agora)) sel = proximoSlotDisponivel();
+  if(!sel) sel = ehHoje ? proximoSlotDisponivel() : '09:00';
+  return slots.map(s=>{ const bloqueado=ehHoje&&s<agora; return `<option value="${s}" ${s===sel?'selected':''} ${bloqueado?'disabled':''}>${s}</option>`; }).join('');
 }
 function ajustarHoraMin(){
   const dataEl=document.getElementById('m-data'), horaEl=document.getElementById('m-hora');
   if(!dataEl||!horaEl) return;
-  // para o select não precisamos de min, mas garantimos que data de hoje não selecione hora passada
-  if(dataEl.value===todayStr()){
-    const agora=horaAgora();
-    // se opção atual é passado, avança para próxima disponível
-    if(horaEl.value && horaEl.value < agora){
-      const primeiraValida=Array.from(horaEl.options).find(o=>o.value>=agora);
-      if(primeiraValida) horaEl.value=primeiraValida.value;
-    }
-    // desabilita opções passadas
-    Array.from(horaEl.options).forEach(o=>{ o.disabled=o.value<agora; });
-  } else {
-    Array.from(horaEl.options).forEach(o=>{ o.disabled=false; });
+  const ehHoje=dataEl.value===todayStr();
+  const agora=ehHoje?horaAgora():'';
+  Array.from(horaEl.options).forEach(o=>{ o.disabled=ehHoje&&o.value<agora; });
+  if(horaEl.options[horaEl.selectedIndex]&&horaEl.options[horaEl.selectedIndex].disabled){
+    const livre=Array.from(horaEl.options).find(o=>!o.disabled);
+    if(livre) horaEl.value=livre.value;
   }
 }
 function setAgModo(m){

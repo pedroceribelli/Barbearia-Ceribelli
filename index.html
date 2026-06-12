@@ -208,6 +208,8 @@
 <div id="modal-root"></div>
 <div id="auth-root"></div>
 <div id="pin-overlay"></div>
+<div id="modo-op-overlay" style="display:none;position:fixed;inset:0;z-index:9990;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center"></div>
+<button id="btn-modo-op" onclick="toggleModoOp()" title="Modo Operação" style="position:fixed;bottom:20px;right:20px;z-index:9000;width:52px;height:52px;border-radius:50%;background:var(--gold);border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer"></button>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -723,6 +725,8 @@ function viewDashboard(){
     {l:'Agend. Hoje',v:aHoje.length,ic:'calendar',c:'var(--gold)',bg:'rgba(201,168,76,.08)'},
     {l:'Clientes',v:state.clientes.length,ic:'users',c:'var(--blue)',bg:'var(--blue-bg)'},
   ];
+  const aConcluidosHoje=state.agendamentos.filter(a=>a.data===t&&a.status==='concluido');
+  const ticketMedio=aConcluidosHoje.length>0?(receita/aConcluidosHoje.length):0;
   const nomeBarbearia = state.config.barbearia?.nome || 'Barbearia Ceribelli';
   return `
     <div style="margin-bottom:18px">
@@ -737,6 +741,10 @@ function viewDashboard(){
         <div style="width:38px;height:38px;border-radius:10px;background:${s.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">${ICON[s.ic](17,s.c)}</div>
         <div><div style="font-size:16px;font-weight:700;color:${s.c}">${s.v}</div><div style="font-size:10px;color:var(--text-3);margin-top:1px">${s.l}</div></div>
       </div>`).join('')}
+      <div class="card" style="display:flex;align-items:center;gap:12px;padding:14px;grid-column:1/-1">
+        <div style="width:38px;height:38px;border-radius:10px;background:rgba(139,92,246,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">${ICON.award(17,'#A78BFA')}</div>
+        <div><div style="font-size:16px;font-weight:700;color:#A78BFA">${fmtMoney(ticketMedio)}</div><div style="font-size:10px;color:var(--text-3);margin-top:1px">Ticket médio hoje${aConcluidosHoje.length?` (${aConcluidosHoje.length} atend.)`:' — sem concluídos'}</div></div>
+      </div>
     </div>
     ${meta>0?`<div class="card" style="margin-bottom:16px;padding:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
@@ -764,8 +772,9 @@ function viewDashboard(){
 /* ============ AGENDA ============ */
 let agFiltro = todayStr();
 let agModo='novo';
-let agFiltroBarb='', agFiltroStatus='';
+let agFiltroBarb='', agFiltroStatus='', agSubModo='lista', agTimelineBarb='';
 function viewAgenda(){
+  if(agSubModo==='timeline') return viewAgendaTimeline();
   let lista=state.agendamentos.filter(a=>!agFiltro||a.data===agFiltro);
   if(agFiltroBarb) lista=lista.filter(a=>a.barbeiro===agFiltroBarb);
   if(agFiltroStatus) lista=lista.filter(a=>a.status===agFiltroStatus);
@@ -773,17 +782,22 @@ function viewAgenda(){
   const barbs=[...new Set(state.agendamentos.map(a=>a.barbeiro).filter(Boolean))];
   const filtroDesc = [agFiltroBarb?`barbeiro: ${agFiltroBarb}`:'', agFiltroStatus?`status: ${ST_LBL[agFiltroStatus]||agFiltroStatus}`:''  ].filter(Boolean).join(' · ');
   return `
-    <div class="sec-head"><div><h1>Agenda</h1><p>${lista.length} agendamento(s)${filtroDesc?' — '+filtroDesc:''}</p></div>
-      <button class="btn btn-primary" onclick="modalAgenda()">+ Novo Agendamento</button></div>
+    <div class="tabs" style="margin-bottom:0px"><button class="tab ${agSubModo==='lista'?'active':''}" onclick="agSubModo='lista';render()">📋 Lista</button><button class="tab ${agSubModo==='timeline'?'active':''}" onclick="agSubModo='timeline';render()">⏱ Timeline</button></div>
+    <div class="sec-head" style="margin-top:16px"><div><h1>Agenda</h1><p>${lista.length} agendamento(s)${filtroDesc?' — '+filtroDesc:''}</p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-amber btn-sm" onclick="modalWalkIn()" style="display:flex;align-items:center;gap:5px">${ICON.plus(14,'#F59E0B')} Walk-in</button>
+        <button class="btn btn-primary" onclick="modalAgenda()">+ Novo Agendamento</button>
+      </div></div>
     ${weekStrip()}
     <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <input type="date" class="inp" style="flex:1;min-width:140px" value="${agFiltro}" onchange="agFiltro=this.value;render()">
       ${barbs.length>1?`<select class="inp" style="flex:1;min-width:120px" onchange="agFiltroBarb=this.value;render()"><option value="">Todos barbeiros</option>${barbs.map(b=>`<option value="${esc(b)}" ${agFiltroBarb===b?'selected':''}>${esc(b)}</option>`).join('')}</select>`:''}
       <select class="inp" style="flex:1;min-width:120px" onchange="agFiltroStatus=this.value;render()"><option value="">Todos status</option>${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${agFiltroStatus===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select>
     </div>
-    ${lista.length?lista.map(a=>`<div class="card list-item" style="padding:15px">
+    ${lista.length?lista.map(a=>`<div class="card list-item" style="padding:15px${a.isWalkIn?';border-left:3px solid var(--amber)':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-weight:700;font-size:14px;color:${ST_COLOR[a.status]}">${esc(a.clienteNome)}</span>
+          ${a.isWalkIn?`<span class="badge" style="background:var(--amber-bg);color:var(--amber)">⚡ Walk-in</span>`:''}
           <span class="badge" style="background:${ST_BG[a.status]};color:${ST_COLOR[a.status]}">${ST_LBL[a.status]}</span></div>
           <div style="font-size:12px;color:var(--text-2)">${a.ePacote?'<span style="color:var(--amber);font-size:11px;font-weight:700">📦 PACOTE · </span>':''}${esc(a.servico)}${servicoDuracao(a.servico)?' · '+servicoDuracao(a.servico)+'min':''}${a.barbeiro?' · '+esc(a.barbeiro):''}${a.clienteTelefone?' · '+esc(a.clienteTelefone):''}</div>
           ${a.obs?`<div style="font-size:11px;color:var(--text-3);margin-top:4px">${esc(a.obs)}</div>`:''}</div>
@@ -798,6 +812,56 @@ function viewAgenda(){
         <button class="btn btn-red btn-sm" onclick="delAgenda('${a.id}')">Remover</button>
       </div></div>`).join(''):`<div class="card empty">${ICON.calendar(36,'#252525')}<p>Nenhum agendamento para este dia</p><button class="btn btn-primary" onclick="modalAgenda()">Novo Agendamento</button></div>`}`;
 }
+/* ============ CORES DE SERVIÇOS (Melhoria 12) ============ */
+const SERVICO_PALETA=['#C9A84C','#60A5FA','#34D399','#F87171','#A78BFA','#FB923C','#38BDF8','#4ADE80','#E879F9','#FACC15'];
+function servicoCor(nome){
+  const idx=(state.config.servicos||[]).findIndex(s=>(s.nome||s)===nome);
+  if(idx>=0) return SERVICO_PALETA[idx % SERVICO_PALETA.length];
+  let h=0; for(let i=0;i<(nome||'').length;i++){h=(h*31+nome.charCodeAt(i))>>>0;} return SERVICO_PALETA[h % SERVICO_PALETA.length];
+}
+
+/* ============ TIMELINE POR BARBEIRO (Melhoria 2) ============ */
+function viewAgendaTimeline(){
+  const barbs=(state.config.barbeiros||[]);
+  if(!agTimelineBarb && barbs.length) agTimelineBarb=barbs[0];
+  const data=agFiltro||todayStr();
+  const slots=[];
+  for(let h=7;h<=21;h++){slots.push(String(h).padStart(2,'0')+':00');if(h<21)slots.push(String(h).padStart(2,'0')+':30');}
+  const ags=state.agendamentos.filter(a=>a.data===data&&(!agTimelineBarb||a.barbeiro===agTimelineBarb)&&a.status!=='cancelado');
+  return `
+    <div class="tabs" style="margin-bottom:0px"><button class="tab" onclick="agSubModo='lista';render()">📋 Lista</button><button class="tab active">⏱ Timeline</button></div>
+    <div class="sec-head" style="margin-top:16px"><div><h1>Timeline</h1><p>${esc(agTimelineBarb||'Todos')} · ${fmtDate(data)}</p></div>
+      <button class="btn btn-amber btn-sm" onclick="modalWalkIn()" style="display:flex;align-items:center;gap:5px">${ICON.plus(14,'#F59E0B')} Walk-in</button>
+    </div>
+    ${weekStrip()}
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      ${barbs.map(b=>`<button class="btn btn-sm ${agTimelineBarb===b?'btn-primary':''}" onclick="agTimelineBarb='${esc(b)}';render()">${esc(b)}</button>`).join('')}
+    </div>
+    <div class="card" style="padding:12px">
+      ${slots.map(slot=>{
+        const ag=ags.find(a=>a.hora===slot);
+        if(ag){
+          const cor=servicoCor(ag.servico);
+          return '<div style="display:flex;gap:10px;align-items:stretch;margin-bottom:6px">'
+            +'<div style="width:42px;font-size:11px;font-weight:700;color:var(--text-3);padding-top:6px;flex-shrink:0">'+slot+'</div>'
+            +'<div style="flex:1;background:'+cor+'22;border:2px solid '+cor+';border-radius:8px;padding:8px 12px;cursor:pointer" onclick="modalAgenda(\''+ag.id+'\')">'
+            +'<div style="font-weight:700;font-size:13px;color:'+cor+'">'+esc(ag.clienteNome)+(ag.isWalkIn?' ⚡':'')+'</div>'
+            +'<div style="font-size:11px;color:var(--text-2);margin-top:2px">'+esc(ag.servico)+'</div>'
+            +'<div style="display:flex;gap:6px;margin-top:6px">'
+            +(ag.status!=='concluido'
+              ?'<button class="btn btn-green btn-sm" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();modalConcluir(\''+ag.id+'\')">✓ Concluir</button>'
+              :'<span style="font-size:10px;color:var(--green);font-weight:700">✓ Concluído</span>')
+            +'</div></div></div>';
+        } else {
+          const isHora=slot.endsWith(':00');
+          return '<div style="display:flex;gap:10px;align-items:center;margin-bottom:2px">'
+            +'<div style="width:42px;font-size:'+(isHora?'11':'10')+'px;color:var(--text-3);font-weight:'+(isHora?'700':'400')+';flex-shrink:0">'+slot+'</div>'
+            +'<div style="flex:1;height:'+(isHora?'22':'16')+'px;border-bottom:1px '+(isHora?'solid':'dashed')+' var(--border);opacity:0.5"></div></div>';
+        }
+      }).join('')}
+    </div>`;
+}
+
 function setStatusAg(id,st){
   const a=state.agendamentos.find(x=>x.id===id);
   if(a && st!=='concluido' && a.lancamentoId){
@@ -812,6 +876,28 @@ function delAgenda(id){
     if(a && a.lancamentoId){ state.lancamentos=state.lancamentos.filter(l=>l.id!==a.lancamentoId); save('lancamentos'); }
     state.agendamentos=state.agendamentos.filter(x=>x.id!==id); save('agendamentos'); render();
   }
+}
+/* ============ WALK-IN RÁPIDO ============ */
+function modalWalkIn(){
+  const dataDef=agFiltro||todayStr();
+  openModal(`
+    <div class="modal-head"><h2>⚡ Walk-in Rápido</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="padding:9px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:14px;font-size:12px;color:var(--amber)">
+      Cliente chegou sem agendamento — sem cadastro, sem burocracia.
+    </div>
+    <div class="field"><label class="lbl">Nome (apelido ou "Cliente")</label><input id="wi-nome" class="inp" placeholder="Ex: João, Cliente, Anônimo..."></div>
+    <div class="field"><label class="lbl">Serviço</label><select id="wi-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option>${esc(s.nome||s)}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Barbeiro</label><select id="wi-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-amber" onclick="saveWalkIn()">Adicionar na Agenda</button></div>
+  `);
+}
+function saveWalkIn(){
+  const nome=(document.getElementById('wi-nome').value.trim())||'Walk-in';
+  const servico=document.getElementById('wi-serv').value;
+  const barbeiro=document.getElementById('wi-barb').value;
+  if(!servico){alert('Selecione o serviço.');return;}
+  state.agendamentos.push({id:uid(),clienteNome:nome,clienteTelefone:'',servico,barbeiro,data:agFiltro||todayStr(),hora:horaAgora(),status:'agendado',obs:'',isWalkIn:true,createdAt:Date.now(),confirmacaoEnviada:false});
+  save('agendamentos'); closeModal(); render();
 }
 function modalAgenda(id){
   const dataDef = agFiltro||todayStr();
@@ -1103,6 +1189,7 @@ function modalConcluir(id){
   concluirTmp={formaPagamento:'pix'};
   concluirProdutos=[];
   const preco=servicoPreco(a.servico);
+  const precoVigente=preco; // captura preço atual do serviço no momento do atendimento
   openModal(`
     <div class="modal-head"><h2>Concluir Atendimento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
     <div style="font-size:13px;color:var(--text-2);margin-bottom:14px">${esc(a.clienteNome)} · ${esc(a.servico)}</div>
@@ -1166,7 +1253,7 @@ function confirmarConcluir(id){
   const lancId=uid();
   const nomesProd=concluirProdutos.map(p=>p.nome);
   const desc=`${a.servico} — ${a.clienteNome}`+(nomesProd.length?` (+ ${nomesProd.join(', ')})`:'');
-  state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,data:a.data,createdAt:Date.now(),origem:'agendamento',produtosComanda:concluirProdutos.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0}))});
+  state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,data:a.data,createdAt:Date.now(),origem:'agendamento',produtosComanda:concluirProdutos.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0})),precoVigente:servicoPreco(a.servico)});
   if(concluirProdutos.length){
     concluirProdutos.forEach(cp=>{ const prod=state.produtos.find(x=>x.id===cp.id); if(prod && prod.estoque!==''&&prod.estoque!=null) prod.estoque=Math.max(0,parseInt(prod.estoque)-1); });
     save('produtos');
@@ -1746,7 +1833,7 @@ function viewFinanceiro(){
             <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${l.categoria?`<span style="font-size:11px;color:var(--text-2)">${esc(l.categoria)}</span>`:''}
               ${!isInfoPacote?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${FP_COLOR[l.formaPagamento]||'#9CA3AF'}18;color:${FP_COLOR[l.formaPagamento]||'#9CA3AF'}">${fmtPayment(l.formaPagamento)}</span>`:'<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue)">📦 Pacote</span>'}
             </div>
-            ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}</div>
+            ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}${l.precoVigente!=null&&l.origem==='agendamento'?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">Tabela na época: ${fmtMoney(l.precoVigente)}</div>`:''}</div>
           <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:15px;font-weight:700;color:${valorCor}">${valorStr}</div><div style="font-size:10px;color:var(--text-3);margin-top:2px">${fmtDate(l.data)}</div></div>
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button></div>
@@ -1788,6 +1875,7 @@ function gerarRelatorioFinanceiro(){
       <td>${esc(l.categoria||'—')}</td>
       <td>${isInfoPacote?'📦 Pacote':fpLabels[l.formaPagamento]||l.formaPagamento||'—'}</td>
       <td style="text-align:right">${taxa>0.001?`<span style="font-size:10px;color:#d97706">Bruto: ${fmtMoney(l.valor)}<br>Taxa: -${fmtMoney(taxa)}</span>`:''}</td>
+      <td style="text-align:right">${l.precoVigente!=null&&l.origem==='agendamento'?fmtMoney(l.precoVigente):'—'}</td>
       <td style="text-align:right;font-weight:700;color:${cor}">${valorExib}</td>
     </tr>`;
   }).join('');
@@ -1869,7 +1957,7 @@ th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5),th:nth-child(6),
 
   <h2>Lançamentos em ordem cronológica</h2>
   <table>
-    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Barbeiro</th><th>Categoria</th><th>Pagamento</th><th>Taxa</th><th style="text-align:right">Valor Líquido</th></tr></thead>
+    <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th>Barbeiro</th><th>Categoria</th><th>Pagamento</th><th>Taxa</th><th>Preço Tabela</th><th style="text-align:right">Valor Líquido</th></tr></thead>
     <tbody>${linhasLanc||'<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Nenhum lançamento no período</td></tr>'}</tbody>
     <tfoot>
       <tr class="total-row"><td colspan="6">Total Entradas (líquido)</td><td style="text-align:right;color:#16a34a">+${fmtMoney(ent)}</td></tr>
@@ -2500,7 +2588,53 @@ async function boot(){
   setInterval(verificarNotificacoes, 60000);
 }
 boot();
-window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); } });
+window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); if(_modoOpAtivo)toggleModoOp(); } });
+
+/* ============ MODO OPERAÇÃO (Melhoria 13) ============ */
+let _modoOpAtivo=false;
+let _modoOpInterval=null;
+function toggleModoOp(){
+  _modoOpAtivo=!_modoOpAtivo;
+  const ov=document.getElementById('modo-op-overlay');
+  if(_modoOpAtivo){
+    ov.style.display='flex';
+    renderModoOp();
+    _modoOpInterval=setInterval(renderModoOp,30000);
+  } else {
+    ov.style.display='none';
+    clearInterval(_modoOpInterval);
+  }
+  const btn=document.getElementById('btn-modo-op');
+  if(btn) btn.innerHTML=_modoOpAtivo?ICON.x(22,'#0A0A0A'):ICON.scissors(22,'#0A0A0A');
+}
+function renderModoOp(){
+  const ov=document.getElementById('modo-op-overlay'); if(!ov) return;
+  const agora=new Date();
+  const agoraStr=todayStr();
+  const horaStr=String(agora.getHours()).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
+  const proximos=state.agendamentos.filter(a=>a.status==='agendado'&&a.data===agoraStr).sort((a,b)=>a.hora>b.hora?1:-1);
+  const prox=proximos[0]||null;
+  const barbearia=state.config.barbearia?.nome||'Barbearia';
+  ov.innerHTML=`
+    <div style="position:absolute;top:20px;right:24px;font-size:28px;font-weight:700;color:var(--text-2)">${horaStr}</div>
+    <button onclick="toggleModoOp()" style="position:absolute;top:20px;left:20px;background:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text-3);cursor:pointer;font-size:13px;font-weight:600">✕ Sair</button>
+    <div style="margin-bottom:10px">${ICON.scissors(44,'#C9A84C')}</div>
+    <div style="font-size:13px;color:var(--text-3);margin-bottom:28px">${esc(barbearia)}</div>
+    ${prox?`
+      <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Próximo cliente</div>
+      <div style="font-size:52px;font-weight:700;color:var(--gold);line-height:1;margin-bottom:6px">${esc(prox.hora)}</div>
+      <div style="font-size:30px;font-weight:700;margin-bottom:5px">${esc(prox.clienteNome)}</div>
+      <div style="font-size:18px;color:var(--text-2);margin-bottom:6px">${esc(prox.servico)}</div>
+      ${prox.barbeiro?`<div style="font-size:13px;color:var(--text-3);margin-bottom:30px">✂️ ${esc(prox.barbeiro)}</div>`:'<div style="margin-bottom:30px"></div>'}
+      <button onclick="modalConcluir('${prox.id}')" style="background:var(--green);border:none;border-radius:14px;padding:18px 48px;font-size:20px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:.02em">✓ Concluir atendimento</button>
+      ${proximos.length>1?`<div style="margin-top:28px;font-size:13px;color:var(--text-3)">A seguir: <strong style="color:var(--text)">${esc(proximos[1].hora)} · ${esc(proximos[1].clienteNome)}</strong></div>`:''}
+    `:`
+      <div style="font-size:20px;color:var(--text-3);margin-top:10px">Nenhum agendamento pendente hoje</div>
+      <div style="font-size:13px;color:var(--text-3);margin-top:8px">Bora descansar! ✂️</div>
+    `}
+  `;
+}
+setTimeout(()=>{ const btn=document.getElementById('btn-modo-op'); if(btn) btn.innerHTML=ICON.scissors(22,'#0A0A0A'); },100);
 </script>
 </body>
 </html>

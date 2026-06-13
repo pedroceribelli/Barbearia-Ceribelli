@@ -921,12 +921,8 @@ function saveWalkIn(){
   save('agendamentos'); closeModal(); render();
 }
 function modalAgenda(id){
-  // Se não tem id (novo agendamento) e agFiltro é hoje, verifica se já é tarde
-  // Após as 20h, padrão para amanhã (mais útil para agendar o dia seguinte)
+  // Usa sempre a data do filtro atual (ou hoje), sem forçar amanhã
   let dataDef = agFiltro||todayStr();
-  if(!id && dataDef === todayStr() && horaAgora() >= '20:00'){
-    const amanha = new Date(parseLocalDate(todayStr())); amanha.setDate(amanha.getDate()+1); dataDef = toISO(amanha);
-  }
   const a = id?state.agendamentos.find(x=>x.id===id):{clienteNome:'',clienteTelefone:'',servico:'',barbeiro:'',data:dataDef,hora:'09:00',status:'agendado',obs:''};
   openModal(`
     <div class="modal-head"><h2>${id?'Editar':'Novo'} Agendamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
@@ -961,20 +957,15 @@ function proximoSlotDisponivel(){ const agora=horaAgora(); const slots=[]; for(l
 function gerarSlotsHora(selecionado, dataRef){
   const slots=[];
   for(let h=6;h<=23;h++){ slots.push(String(h).padStart(2,'0')+':00'); if(h<23) slots.push(String(h).padStart(2,'0')+':30'); }
-  const ehHoje = dataRef===todayStr();
-  const agora = ehHoje ? horaAgora() : '';
   let sel = selecionado;
-  if(ehHoje && (!sel || sel < agora)) sel = proximoSlotDisponivel();
-  if(!sel) sel = ehHoje ? proximoSlotDisponivel() : '09:00';
-  return slots.map(s=>{ const bloqueado=ehHoje&&s<agora; return `<option value="${s}" ${s===sel?'selected':''} ${bloqueado?'disabled':''}>${s}</option>`; }).join('');
+  if(!sel) sel = '09:00';
+  return slots.map(s=>`<option value="${s}" ${s===sel?'selected':''}>${s}</option>`).join('');
 }
 function ajustarHoraMin(){
   const dataEl=document.getElementById('m-data'), horaEl=document.getElementById('m-hora');
   if(!dataEl||!horaEl) return;
-  const ehHoje = dataEl.value === todayStr();
-  // Se mudou para data futura e o horário carregado era noturno (sobra de hoje), reseta para 09:00
-  let valorAtual = horaEl.value;
-  if(!ehHoje && valorAtual >= '20:00') valorAtual = '09:00';
+  // Regenera as opções completamente para a nova data (mais confiável em mobile)
+  const valorAtual=horaEl.value;
   horaEl.innerHTML=gerarSlotsHora(valorAtual, dataEl.value);
 }
 function setAgModo(m){
@@ -1015,7 +1006,7 @@ function saveAgenda(id){
   const g=x=>document.getElementById(x).value;
   const data={clienteNome:g('m-nome').trim(),clienteTelefone:g('m-tel').trim(),servico:g('m-serv'),barbeiro:g('m-barb'),data:g('m-data'),hora:g('m-hora'),status:g('m-status'),obs:g('m-obs').trim()};
   if(!data.clienteNome||!data.servico||!data.data||!data.hora){ alert('Preencha nome, serviço, data e hora.'); return; }
-  if(!id && data.data===todayStr() && data.hora < horaAgora()){ alert('Esse horário já passou hoje. Escolha um horário a partir de agora.'); return; }
+  // Sem bloqueio por horário passado — permite agendar qualquer data/hora livremente
   // detecta serviço de pacote
   let pacoteRef={};
   if(data.servico.startsWith('PACOTE:')){

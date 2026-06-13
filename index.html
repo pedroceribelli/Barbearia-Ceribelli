@@ -1310,7 +1310,7 @@ function confirmarConcluir(id){
   const lancId=uid();
   const nomesProd=concluirProdutos.map(p=>p.nome);
   const desc=`${a.servico} — ${a.clienteNome}`+(nomesProd.length?` (+ ${nomesProd.join(', ')})`:'');
-  state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,data:a.data,createdAt:Date.now(),origem:'agendamento',produtosComanda:concluirProdutos.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0})),precoVigente:servicoPreco(a.servico)});
+  state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'agendamento',produtosComanda:concluirProdutos.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0})),precoVigente:servicoPreco(a.servico)});
   if(concluirProdutos.length){
     concluirProdutos.forEach(cp=>{ const prod=state.produtos.find(x=>x.id===cp.id); if(prod && prod.estoque!==''&&prod.estoque!=null) prod.estoque=Math.max(0,parseInt(prod.estoque)-1); });
     save('produtos');
@@ -1694,7 +1694,7 @@ function concluirPacote(id){
         categoria:'Serviço',
         valor:valorPac,valorLiquido:valorPac,
         formaPagamento:'pix',
-        data:a.data,createdAt:Date.now(),origem:'pacote'
+        data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote'
       });
     } else {
       // demais serviços: lança informativo com valor 0
@@ -1704,7 +1704,7 @@ function concluirPacote(id){
         categoria:'Serviço',
         valor:0,valorLiquido:0,
         formaPagamento:'pix',
-        data:a.data,createdAt:Date.now(),origem:'pacote_informativo'
+        data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote_informativo'
       });
     }
     save('lancamentos');
@@ -1897,7 +1897,7 @@ function viewFinanceiro(){
             <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">${l.categoria?`<span style="font-size:11px;color:var(--text-2)">${esc(l.categoria)}</span>`:''}
               ${!isInfoPacote?`<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:${FP_COLOR[l.formaPagamento]||'#9CA3AF'}18;color:${FP_COLOR[l.formaPagamento]||'#9CA3AF'}">${fmtPayment(l.formaPagamento)}</span>`:'<span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--blue-bg);color:var(--blue)">📦 Pacote</span>'}
             </div>
-            ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}${l.precoVigente!=null&&l.origem==='agendamento'?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">Tabela na época: ${fmtMoney(l.precoVigente)}</div>`:''}</div>
+            ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}${l.precoVigente!=null&&l.origem==='agendamento'?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">Tabela na época: ${fmtMoney(l.precoVigente)}</div>`:''}${l.dataAgendamento&&l.dataAgendamento!==l.data?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">📅 Agendado para: ${fmtDate(l.dataAgendamento)}</div>`:''}</div>
           <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:15px;font-weight:700;color:${valorCor}">${valorStr}</div><div style="font-size:10px;color:var(--text-3);margin-top:2px">${fmtDate(l.data)}</div></div>
         </div>
         <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button></div>

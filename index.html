@@ -842,8 +842,9 @@ function viewAgendaTimeline(){
   // funcionário: sempre usa o barbeiro vinculado
   if(isFuncionario() && currentBarbeiro){
     agTimelineBarb = currentBarbeiro;
-  } else if(!agTimelineBarb && barbs.length){
-    agTimelineBarb=barbs[0];
+  } else if(!agTimelineBarb){
+    // dono: usa barbeiroDono se configurado, senão o primeiro da lista
+    agTimelineBarb = (state.config.barbeiroDono||'') || (barbs.length ? barbs[0] : '');
   }
   const barbLocked = isFuncionario() && !!currentBarbeiro;
   const data=agFiltro||todayStr();
@@ -2209,6 +2210,14 @@ function viewConfig(){
       <h3 style="font-size:14px;margin:18px 0 12px">Barbeiros</h3>
       <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">${cfg.barbeiros.map((b,i)=>`<span class="chip">${esc(b)}<button onclick="cfg_delArr('barbeiros',${i})">×</button></span>`).join('')}</div>
       <div style="display:flex;gap:7px"><input class="inp" style="flex:1" placeholder="Nome do barbeiro" onkeydown="if(event.key==='Enter')cfg_addArr('barbeiros',this)"><button class="btn btn-primary" onclick="cfg_addArr('barbeiros',this.previousElementSibling)">Adicionar</button></div>
+      <div style="margin-top:14px;padding:12px;background:var(--inner);border-radius:9px;border:1px solid var(--border)">
+        <label class="lbl">Seu barbeiro (Modo Operação)</label>
+        <select class="inp" style="margin-top:6px" onchange="cfg_set('barbeiroDono',this.value)">
+          <option value="">Nenhum (exibe todos)</option>
+          ${cfg.barbeiros.map(b=>`<option value="${esc(b)}" ${(cfg.barbeiroDono||'')=== b?'selected':''}>${esc(b)}</option>`).join('')}
+        </select>
+        <p style="font-size:11px;color:var(--text-3);margin-top:6px">Ao abrir o Modo Operação, a agenda já vai filtrada para este barbeiro.</p>
+      </div>
       <h3 style="font-size:14px;margin:18px 0 12px">Locais de Atendimento</h3>
       ${cfg.locais.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--inner);border:1px solid var(--border);border-radius:8px;margin-bottom:7px"><span style="font-size:13px">${esc(l.nome)}</span>${i>0?`<button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delLocal(${i})">×</button>`:''}</div>`).join('')}
       <div style="display:flex;gap:7px;margin-top:4px"><input class="inp" style="flex:1" placeholder="Nome do local" onkeydown="if(event.key==='Enter')cfg_addLocal(this)"><button class="btn btn-primary" onclick="cfg_addLocal(this.previousElementSibling)">Adicionar</button></div>
@@ -2700,7 +2709,8 @@ function toggleModoOp(){
       if(isFuncionario() && currentBarbeiro){
         _modoOpBarb = currentBarbeiro;
       } else {
-        _modoOpBarb = agTimelineBarb || (barbs.length===1 ? barbs[0] : '');
+        // dono: usa o barbeiro configurado em Config → Barbearia, senão herda da timeline
+        _modoOpBarb = (state.config.barbeiroDono||'') || agTimelineBarb || (barbs.length===1 ? barbs[0] : '');
       }
     }
     ov.style.display='flex';

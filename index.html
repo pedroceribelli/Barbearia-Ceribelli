@@ -267,8 +267,8 @@ if(auth){
     currentUser = user;
     if(user){
       currentRole = await carregarRole(user.uid);
-      // funcionário: pré-seleciona barbeiro vinculado
-      if(isFuncionario() && currentBarbeiro){
+      // qualquer usuário com barbeiro vinculado: pré-seleciona na agenda
+      if(currentBarbeiro){
         agFiltroBarb = currentBarbeiro;
         agTimelineBarb = currentBarbeiro;
       }
@@ -839,12 +839,11 @@ function servicoCor(nome){
 /* ============ TIMELINE POR BARBEIRO (Melhoria 2) ============ */
 function viewAgendaTimeline(){
   const barbs=(state.config.barbeiros||[]);
-  // funcionário: sempre usa o barbeiro vinculado
+  // qualquer usuário com barbeiro vinculado: usa ele
   if(isFuncionario() && currentBarbeiro){
     agTimelineBarb = currentBarbeiro;
   } else if(!agTimelineBarb){
-    // dono: usa barbeiroDono se configurado, senão o primeiro da lista
-    agTimelineBarb = (state.config.barbeiroDono||'') || (barbs.length ? barbs[0] : '');
+    agTimelineBarb = currentBarbeiro || (barbs.length ? barbs[0] : '');
   }
   const barbLocked = isFuncionario() && !!currentBarbeiro;
   const data=agFiltro||todayStr();
@@ -2210,14 +2209,19 @@ function viewConfig(){
       <h3 style="font-size:14px;margin:18px 0 12px">Barbeiros</h3>
       <div style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px">${cfg.barbeiros.map((b,i)=>`<span class="chip">${esc(b)}<button onclick="cfg_delArr('barbeiros',${i})">×</button></span>`).join('')}</div>
       <div style="display:flex;gap:7px"><input class="inp" style="flex:1" placeholder="Nome do barbeiro" onkeydown="if(event.key==='Enter')cfg_addArr('barbeiros',this)"><button class="btn btn-primary" onclick="cfg_addArr('barbeiros',this.previousElementSibling)">Adicionar</button></div>
-      <div style="margin-top:14px;padding:12px;background:var(--inner);border-radius:9px;border:1px solid var(--border)">
-        <label class="lbl">Seu barbeiro (Modo Operação)</label>
-        <select class="inp" style="margin-top:6px" onchange="cfg_set('barbeiroDono',this.value)">
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:4px">✂️ Meu perfil de barbeiro</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Vincule sua conta ao seu nome de barbeiro. Agenda e Modo Operação vão abrir direto na sua fila.</p>
+      <div class="field">
+        <label class="lbl">Barbeiro vinculado</label>
+        <select id="dono-barb-sel" class="inp" style="margin-top:4px">
           <option value="">Nenhum (exibe todos)</option>
-          ${cfg.barbeiros.map(b=>`<option value="${esc(b)}" ${(cfg.barbeiroDono||'')=== b?'selected':''}>${esc(b)}</option>`).join('')}
+          ${cfg.barbeiros.map(b=>`<option value="${esc(b)}" ${(currentBarbeiro||'')=== b?'selected':''}>${esc(b)}</option>`).join('')}
         </select>
-        <p style="font-size:11px;color:var(--text-3);margin-top:6px">Ao abrir o Modo Operação, a agenda já vai filtrada para este barbeiro.</p>
       </div>
+      <button class="btn btn-primary" onclick="salvarMeuBarbeiro()">Salvar vínculo</button>
+      ${currentBarbeiro?`<p style="font-size:11px;color:var(--green);margin-top:10px">✅ Vinculado a: <strong>${esc(currentBarbeiro)}</strong></p>`:`<p style="font-size:11px;color:var(--text-3);margin-top:10px">Sem vínculo configurado.</p>`}
       <h3 style="font-size:14px;margin:18px 0 12px">Locais de Atendimento</h3>
       ${cfg.locais.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--inner);border:1px solid var(--border);border-radius:8px;margin-bottom:7px"><span style="font-size:13px">${esc(l.nome)}</span>${i>0?`<button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delLocal(${i})">×</button>`:''}</div>`).join('')}
       <div style="display:flex;gap:7px;margin-top:4px"><input class="inp" style="flex:1" placeholder="Nome do local" onkeydown="if(event.key==='Enter')cfg_addLocal(this)"><button class="btn btn-primary" onclick="cfg_addLocal(this.previousElementSibling)">Adicionar</button></div>
@@ -2604,6 +2608,32 @@ async function vincularBarbeiroFuncionario(uid, barbeiro){
     alert('Erro ao vincular: ' + e.message);
   }
 }
+
+async function salvarMeuBarbeiro(){
+  if(!auth || !currentUser){ alert('Você precisa estar logado.'); return; }
+  const sel = document.getElementById('dono-barb-sel');
+  if(!sel) return;
+  const barbeiro = sel.value;
+  try{
+    await db.collection('usuarios').doc(currentUser.uid).set({
+      role: 'dono',
+      email: currentUser.email||'',
+      barbeiro: barbeiro||'',
+      criadoEm: Date.now()
+    }, { merge: true });
+    currentBarbeiro = barbeiro || null;
+    if(currentBarbeiro){
+      agFiltroBarb = currentBarbeiro;
+      agTimelineBarb = currentBarbeiro;
+      if(_modoOpAtivo){ _modoOpBarb = currentBarbeiro; renderModoOp(); }
+    }
+    render();
+    setCloudStatus(barbeiro ? '✅ Barbeiro vinculado: '+barbeiro : '✅ Vínculo removido','#22C55E');
+    setTimeout(()=>setCloudStatus('☁️ Firebase sincronizado','#22C55E'),2500);
+  } catch(e){
+    alert('Erro ao salvar: ' + e.message);
+  }
+}
 async function modalCadastrarFuncionario(){
   const barbs = (state.config.barbeiros||[]);
   openModal(`
@@ -2706,11 +2736,11 @@ function toggleModoOp(){
     // funcionário: sempre usa o barbeiro vinculado; dono herda da timeline ou deixa escolher
     const barbs=state.config.barbeiros||[];
     if(!_modoOpBarb){
-      if(isFuncionario() && currentBarbeiro){
+      // dono ou funcionário: usa o barbeiro vinculado ao perfil
+      if(currentBarbeiro){
         _modoOpBarb = currentBarbeiro;
       } else {
-        // dono: usa o barbeiro configurado em Config → Barbearia, senão herda da timeline
-        _modoOpBarb = (state.config.barbeiroDono||'') || agTimelineBarb || (barbs.length===1 ? barbs[0] : '');
+        _modoOpBarb = agTimelineBarb || (barbs.length===1 ? barbs[0] : '');
       }
     }
     ov.style.display='flex';

@@ -198,6 +198,7 @@
     <header id="topbar">
       <button class="burger" onclick="openDrawer()" aria-label="Abrir menu"></button>
       <div class="brand" id="topbar-brand"><span>Barbearia Ceribelli</span></div>
+      <button class="top-action" id="btn-modo-op" onclick="toggleModoOp()" title="Modo Operação" aria-label="Modo Operação"></button>
       <button class="top-action" id="btn-tema" onclick="toggleTema()" aria-label="Alternar tema"></button>
       <button class="top-action" id="btn-sino" onclick="setView('lembretes')" aria-label="Lembretes"><span id="lembrete-badge"></span></button>
       <button class="top-action" id="btn-novo" onclick="modalAgenda()" aria-label="Novo agendamento"></button>
@@ -209,7 +210,6 @@
 <div id="auth-root"></div>
 <div id="pin-overlay"></div>
 <div id="modo-op-overlay" style="display:none;position:fixed;inset:0;z-index:9990;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center"></div>
-<button id="btn-modo-op" onclick="toggleModoOp()" title="Modo Operação" style="position:fixed;bottom:20px;right:20px;z-index:9000;width:52px;height:52px;border-radius:50%;background:var(--gold);border:none;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:pointer"></button>
 
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -320,7 +320,7 @@ async function cloudLoad(){
 const uid = () => Math.random().toString(36).slice(2,10);
 const fmtMoney = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; };
-const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const todayStr = () => new Date().toISOString().split('T')[0];
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const calcLiquido = (v,fp) => fp==='debito'?v*(1-state.config.taxaDebito/100):fp==='credito'?v*(1-state.config.taxaCredito/100):v;
 const fmtPayment = fp => ({pix:'Pix',dinheiro:'Dinheiro',debito:`Débito (−${state.config.taxaDebito}%)`,credito:`Crédito (−${state.config.taxaCredito}%)`}[fp]||fp);
@@ -483,7 +483,7 @@ function saveConfig(){
 
 /* ============ TEMA ============ */
 let temaClaro = LS.get('bc:tema') === 'claro';
-function applyTema(){ document.body.classList.toggle('tema-claro', temaClaro); const b=document.getElementById('btn-tema'); if(b){ b.innerHTML=temaClaro?ICON.moon(20,'#C9A84C'):ICON.sun(20,'#C9A84C'); } }
+function applyTema(){ document.body.classList.toggle('tema-claro', temaClaro); const b=document.getElementById('btn-tema'); if(b){ b.innerHTML=temaClaro?ICON.moon(20,'#C9A84C'):ICON.sun(20,'#C9A84C'); } const bop=document.getElementById('btn-modo-op'); if(bop&&!_modoOpAtivo) bop.innerHTML=ICON.scissors(18,'#C9A84C'); }
 function toggleTema(){ temaClaro=!temaClaro; LS.set('bc:tema',temaClaro?'claro':'escuro'); applyTema(); }
 
 /* ============ NOTAS ============ */
@@ -939,7 +939,7 @@ function modalAgenda(id){
       <div class="field"><label class="lbl">Nome do Cliente</label><input id="m-nome" class="inp" value="${esc(a.clienteNome)}" placeholder="Nome completo"></div>
       <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
     </div>
-    <div class="row2"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
+    <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
       <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora, a.data)}</select></div></div>
     <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
@@ -960,8 +960,7 @@ function gerarSlotsHora(selecionado, dataRef){
   const agora = ehHoje ? horaAgora() : '';
   let sel = selecionado;
   if(ehHoje && (!sel || sel < agora)) sel = proximoSlotDisponivel();
-  if(!sel || (!ehHoje && !slots.includes(sel))) sel = '09:00';
-  if(!slots.includes(sel)) sel = slots[0];
+  if(!sel) sel = ehHoje ? proximoSlotDisponivel() : '09:00';
   return slots.map(s=>{ const bloqueado=ehHoje&&s<agora; return `<option value="${s}" ${s===sel?'selected':''} ${bloqueado?'disabled':''}>${s}</option>`; }).join('');
 }
 function ajustarHoraMin(){
@@ -969,7 +968,7 @@ function ajustarHoraMin(){
   if(!dataEl||!horaEl) return;
   const ehHoje=dataEl.value===todayStr();
   const agora=ehHoje?horaAgora():'';
-  Array.from(horaEl.options).forEach(o=>{ o.disabled=false; });
+  Array.from(horaEl.options).forEach(o=>{ o.disabled=ehHoje&&o.value<agora; });
   if(horaEl.options[horaEl.selectedIndex]&&horaEl.options[horaEl.selectedIndex].disabled){
     const livre=Array.from(horaEl.options).find(o=>!o.disabled);
     if(livre) horaEl.value=livre.value;
@@ -1013,6 +1012,7 @@ function saveAgenda(id){
   const g=x=>document.getElementById(x).value;
   const data={clienteNome:g('m-nome').trim(),clienteTelefone:g('m-tel').trim(),servico:g('m-serv'),barbeiro:g('m-barb'),data:g('m-data'),hora:g('m-hora'),status:g('m-status'),obs:g('m-obs').trim()};
   if(!data.clienteNome||!data.servico||!data.data||!data.hora){ alert('Preencha nome, serviço, data e hora.'); return; }
+  if(!id && data.data===todayStr() && data.hora < horaAgora()){ alert('Esse horário já passou hoje. Escolha um horário a partir de agora.'); return; }
   // detecta serviço de pacote
   let pacoteRef={};
   if(data.servico.startsWith('PACOTE:')){
@@ -1298,6 +1298,8 @@ function confirmarConcluir(id){
   }
   state.agendamentos=state.agendamentos.map(x=>x.id===id?{...x,status:'concluido',lancamentoId:lancId}:x);
   save('lancamentos'); save('agendamentos'); closeModal(); render();
+  // Se Modo Operação está ativo, atualiza a tela para o próximo cliente
+  if(_modoOpAtivo) setTimeout(renderModoOp, 200);
 }
 
 /* ============ VENDER PRODUTO -> FINANCEIRO ============ */
@@ -1445,7 +1447,7 @@ function viewBarbeiros(){
     ${barbModo==='periodo'?`
     <div class="card" style="padding:14px;margin-bottom:16px">
       <div style="font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Selecionar período</div>
-      <div class="row2">
+      <<div class="row2" style="overflow:hidden">
         <div class="field"><label class="lbl">De</label><input type="date" class="inp" style="max-width:100%;min-width:0" value="${barbFiltroInicio}" onchange="barbFiltroInicio=this.value;render()"></div>
         <div class="field"><label class="lbl">Até</label><input type="date" class="inp" style="max-width:100%;min-width:0" value="${barbFiltroFim}" onchange="barbFiltroFim=this.value;render()"></div>
       </div>
@@ -2628,7 +2630,7 @@ async function boot(){
 boot();
 window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); if(_modoOpAtivo)toggleModoOp(); } });
 
-/* ============ MODO OPERAÇÃO (Melhoria 13) ============ */
+/* ============ MODO OPERAÇÃO ============ */
 let _modoOpAtivo=false;
 let _modoOpInterval=null;
 function toggleModoOp(){
@@ -2637,42 +2639,56 @@ function toggleModoOp(){
   if(_modoOpAtivo){
     ov.style.display='flex';
     renderModoOp();
-    _modoOpInterval=setInterval(renderModoOp,30000);
+    _modoOpInterval=setInterval(()=>{ const h=document.getElementById('modo-op-hora'); if(h){ const n=new Date(); h.textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); } },15000);
   } else {
     ov.style.display='none';
     clearInterval(_modoOpInterval);
   }
   const btn=document.getElementById('btn-modo-op');
-  if(btn) btn.innerHTML=_modoOpAtivo?ICON.x(22,'#0A0A0A'):ICON.scissors(22,'#0A0A0A');
+  if(btn) btn.innerHTML=_modoOpAtivo?ICON.x(18,'#EF4444'):ICON.scissors(18,'#C9A84C');
+}
+function modoOpConcluir(id){
+  // Chama a comanda de concluir existente — overlay fica embaixo do modal
+  modalConcluir(id);
 }
 function renderModoOp(){
   const ov=document.getElementById('modo-op-overlay'); if(!ov) return;
   const agora=new Date();
   const agoraStr=todayStr();
   const horaStr=String(agora.getHours()).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
-  const proximos=state.agendamentos.filter(a=>a.status==='agendado'&&a.data===agoraStr).sort((a,b)=>a.hora>b.hora?1:-1);
+  const proximos=state.agendamentos
+    .filter(a=>a.status==='agendado'&&a.data===agoraStr)
+    .sort((a,b)=>a.hora>b.hora?1:-1);
   const prox=proximos[0]||null;
-  const barbearia=state.config.barbearia?.nome||'Barbearia';
-  ov.innerHTML=`
-    <div style="position:absolute;top:20px;right:24px;font-size:28px;font-weight:700;color:var(--text-2)">${horaStr}</div>
-    <button onclick="toggleModoOp()" style="position:absolute;top:20px;left:20px;background:none;border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text-3);cursor:pointer;font-size:13px;font-weight:600">✕ Sair</button>
-    <div style="margin-bottom:10px">${ICON.scissors(44,'#C9A84C')}</div>
-    <div style="font-size:13px;color:var(--text-3);margin-bottom:28px">${esc(barbearia)}</div>
-    ${prox?`
-      <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px">Próximo cliente</div>
-      <div style="font-size:52px;font-weight:700;color:var(--gold);line-height:1;margin-bottom:6px">${esc(prox.hora)}</div>
-      <div style="font-size:30px;font-weight:700;margin-bottom:5px">${esc(prox.clienteNome)}</div>
-      <div style="font-size:18px;color:var(--text-2);margin-bottom:6px">${esc(prox.servico)}</div>
-      ${prox.barbeiro?`<div style="font-size:13px;color:var(--text-3);margin-bottom:30px">✂️ ${esc(prox.barbeiro)}</div>`:'<div style="margin-bottom:30px"></div>'}
-      <button onclick="modalConcluir('${prox.id}')" style="background:var(--green);border:none;border-radius:14px;padding:18px 48px;font-size:20px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:.02em">✓ Concluir atendimento</button>
-      ${proximos.length>1?`<div style="margin-top:28px;font-size:13px;color:var(--text-3)">A seguir: <strong style="color:var(--text)">${esc(proximos[1].hora)} · ${esc(proximos[1].clienteNome)}</strong></div>`:''}
-    `:`
-      <div style="font-size:20px;color:var(--text-3);margin-top:10px">Nenhum agendamento pendente hoje</div>
-      <div style="font-size:13px;color:var(--text-3);margin-top:8px">Bora descansar! ✂️</div>
-    `}
-  `;
+  const barbearia=(state.config.barbearia&&state.config.barbearia.nome)||'Barbearia';
+
+  ov.innerHTML=
+    '<div style="position:absolute;top:0;left:0;right:0;height:56px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px">'
+      +'<div style="display:flex;align-items:center;gap:8px">'+ICON.scissors(18,'#C9A84C')+'<span style="font-size:14px;font-weight:700;color:var(--gold)">'+esc(barbearia)+'</span></div>'
+      +'<span id="modo-op-hora" style="font-size:18px;font-weight:700;color:var(--text-2)">'+horaStr+'</span>'
+      +'<button onclick="toggleModoOp()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 14px;color:var(--text-3);cursor:pointer;font-size:13px;font-weight:600">✕ Sair</button>'
+    +'</div>'
+    +(prox
+      ? '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding-top:20px">'
+          +'<div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.14em;margin-bottom:10px">Próximo cliente</div>'
+          +'<div style="font-size:58px;font-weight:700;color:var(--gold);line-height:1;margin-bottom:8px">'+esc(prox.hora)+'</div>'
+          +'<div style="font-size:32px;font-weight:700;margin-bottom:6px">'+esc(prox.clienteNome)+(prox.isWalkIn?' <span style="font-size:16px">⚡</span>':'')+'</div>'
+          +'<div style="font-size:19px;color:var(--text-2);margin-bottom:6px">'+esc(prox.servico)+'</div>'
+          +(prox.barbeiro?'<div style="font-size:13px;color:var(--text-3);margin-bottom:32px">✂️ '+esc(prox.barbeiro)+'</div>':'<div style="margin-bottom:32px"></div>')
+          +'<button onclick="modoOpConcluir(\''+prox.id+'\')" style="background:var(--green);border:none;border-radius:14px;padding:20px 56px;font-size:22px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,.3)">✓ Concluir atendimento</button>'
+          +(proximos.length>1
+            ?'<div style="margin-top:30px;font-size:13px;color:var(--text-3)">A seguir: <strong style="color:var(--text)">'+esc(proximos[1].hora)+' · '+esc(proximos[1].clienteNome)+'</strong>'+(proximos.length>2?' <span style="color:var(--text-3)">e mais '+(proximos.length-2)+'</span>':'')+'</div>'
+            :'')
+        +'</div>'
+      : '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px">'
+          +ICON.scissors(48,'#2A2A2A')
+          +'<div style="font-size:22px;font-weight:700;color:var(--text-3)">Agenda limpa por hoje!</div>'
+          +'<div style="font-size:14px;color:var(--text-3)">Nenhum agendamento pendente ✂️</div>'
+        +'</div>'
+    );
 }
-setTimeout(()=>{ const btn=document.getElementById('btn-modo-op'); if(btn) btn.innerHTML=ICON.scissors(22,'#0A0A0A'); },100);
+// Inicializa ícone do botão no topbar após boot
+setTimeout(()=>{ const btn=document.getElementById('btn-modo-op'); if(btn) btn.innerHTML=ICON.scissors(18,'#C9A84C'); },150);
 </script>
 </body>
 </html>

@@ -971,8 +971,10 @@ function gerarSlotsHora(selecionado, dataRef){
 function ajustarHoraMin(){
   const dataEl=document.getElementById('m-data'), horaEl=document.getElementById('m-hora');
   if(!dataEl||!horaEl) return;
-  // Regenera as opções completamente para a nova data (mais confiável em mobile)
-  const valorAtual=horaEl.value;
+  const ehHoje = dataEl.value === todayStr();
+  // Se mudou para data futura e o horário carregado era noturno (sobra de hoje), reseta para 09:00
+  let valorAtual = horaEl.value;
+  if(!ehHoje && valorAtual >= '20:00') valorAtual = '09:00';
   horaEl.innerHTML=gerarSlotsHora(valorAtual, dataEl.value);
 }
 function setAgModo(m){

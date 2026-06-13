@@ -921,7 +921,12 @@ function saveWalkIn(){
   save('agendamentos'); closeModal(); render();
 }
 function modalAgenda(id){
-  const dataDef = agFiltro||todayStr();
+  // Se não tem id (novo agendamento) e agFiltro é hoje, verifica se já é tarde
+  // Após as 20h, padrão para amanhã (mais útil para agendar o dia seguinte)
+  let dataDef = agFiltro||todayStr();
+  if(!id && dataDef === todayStr() && horaAgora() >= '20:00'){
+    const amanha = new Date(parseLocalDate(todayStr())); amanha.setDate(amanha.getDate()+1); dataDef = toISO(amanha);
+  }
   const a = id?state.agendamentos.find(x=>x.id===id):{clienteNome:'',clienteTelefone:'',servico:'',barbeiro:'',data:dataDef,hora:'09:00',status:'agendado',obs:''};
   openModal(`
     <div class="modal-head"><h2>${id?'Editar':'Novo'} Agendamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
@@ -939,7 +944,7 @@ function modalAgenda(id){
       <div class="field"><label class="lbl">Nome do Cliente</label><input id="m-nome" class="inp" value="${esc(a.clienteNome)}" placeholder="Nome completo"></div>
       <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
     </div>
-    <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()"></div>
+    <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()" oninput="ajustarHoraMin()"></div>
       <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora, a.data)}</select></div></div>
     <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>

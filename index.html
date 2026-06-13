@@ -1485,11 +1485,11 @@ function viewBarbeiros(){
     ${barbs.length?barbs.map(b=>{
       const ultimoPagto = (state.config.comissoesPagas||{})[b] || 0;
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-      const agsPag=ags.filter(a=>!a.ePacote);
+      const agsPag=ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
       const agsPac=ags.filter(a=>a.ePacote);
       const receita=agsPag.reduce((s,a)=>{
         const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-        const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
+        const baseServ=lanc?(lanc.valorLiquido??lanc.valor):(a.preco||servicoPreco(a.servico)||0);
         const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
         const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
         return s+(baseServ-totalProd)+margemProd;
@@ -1503,7 +1503,7 @@ function viewBarbeiros(){
             <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold-m),#2A2A2A);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--gold)">${esc(b.charAt(0).toUpperCase())}</div>
             <div><div style="font-weight:700;font-size:15px">${esc(b)}</div><div style="font-size:11px;color:var(--text-2)">${ags.length} serviço(s) · ${barbPeriodoLabel()}</div></div>
           </div>
-          <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--green)">${fmtMoney(receita)}</div><div style="font-size:10px;color:var(--text-3)">receita bruta</div></div>
+          <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--green)">${fmtMoney(receita)}</div><div style="font-size:10px;color:var(--text-3)">receita líquida</div></div>
         </div>
         ${agsPac.length?`<div style="padding:8px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px">📦 +${agsPac.length} atendimento(s) de pacote — sem lançamento financeiro individual</div>`:''}
         ${Object.keys(byServico).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${Object.entries(byServico).map(([s,n])=>`<span style="padding:3px 10px;background:var(--inner);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text-2)">${esc(s)}: <strong>${n}x</strong></span>`).join('')}</div>`:''}
@@ -1534,10 +1534,10 @@ function viewBarbeiros(){
   };
   const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
   const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-  const agsPag = ags.filter(a=>!a.ePacote);
+  const agsPag = ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
   const receita = agsPag.reduce((s,a)=>{
     const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-    const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
+    const baseServ=lanc?(lanc.valorLiquido??lanc.valor):(a.preco||servicoPreco(a.servico)||0);
     const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
     const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
     return s+(baseServ-totalProd)+margemProd;
@@ -1562,7 +1562,7 @@ function viewBarbeiros(){
    .sort((a,x)=>`${a.data}${a.hora}`>`${x.data}${x.hora}`?1:-1)
     .map(a=>{
       const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-      const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
+      const baseServ=lanc?(lanc.valorLiquido??lanc.valor):(a.preco||servicoPreco(a.servico)||0);
       const prods=lanc?(lanc.produtosComanda||[]):[];
       const totalProd=prods.reduce((sp,p)=>sp+p.preco,0);
       const margemProd=prods.reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0);
@@ -1644,7 +1644,7 @@ function viewBarbeiros(){
   </table>
   <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:13px">
     <strong>💰 Comissão a pagar:</strong> ${pct}% sobre ${fmtMoney(receita)} = <strong style="color:#d97706;font-size:15px">${fmtMoney(comissao)}</strong>
-    <div style="font-size:11px;color:#92400e;margin-top:4px">Calculado sobre o faturamento bruto, sem desconto de taxa de maquininha.</div>
+    <div style="font-size:11px;color:#92400e;margin-top:4px">Calculado sobre o faturamento líquido (já descontadas taxas de maquininha). Alinhado com o financeiro.</div>
   </div>
   <div class="footer">${esc(barbearia)} · Relatório gerado pelo sistema Na Régua</div>
 </div>

@@ -1259,12 +1259,25 @@ function modalConcluir(id){
     <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="cc-pay">
       ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setConcluirPay('${v}')">${l}</button>`).join('')}
     </div></div>
+    <div class="field"><label class="lbl">Gorjeta para o barbeiro (opcional)</label>
+      <div style="display:flex;gap:7px;margin-bottom:6px">
+        ${[5,10,15,20].map(v=>`<button class="pay" data-tip="${v}" onclick="setConcluirTip(${v})" style="flex:1;font-size:12px;font-weight:700">R$\u00a0${v}</button>`).join('')}
+        <button class="pay" data-tip="0" onclick="setConcluirTip(0)" style="font-size:12px">✕</button>
+      </div>
+      <input id="cc-gorjeta" type="number" step="0.50" min="0" class="inp" placeholder="Ou digite o valor (R$)" oninput="updConcluir()" style="margin-top:0">
+    </div>
     <div id="cc-resumo" style="padding:10px 12px;background:var(--green-bg);border-radius:7px;font-size:13px;color:var(--green);margin-bottom:8px"></div>
     <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmarConcluir('${id}')">Confirmar e lançar</button></div>
   `);
   renderProdutosConcluir(); updConcluir();
 }
 function setConcluirPay(p){ concluirTmp.formaPagamento=p; document.querySelectorAll('#cc-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); updConcluir(); }
+function setConcluirTip(v){
+  const inp=document.getElementById('cc-gorjeta'); if(inp) inp.value=v||'';
+  document.querySelectorAll('[data-tip]').forEach(b=>b.classList.toggle('on',parseFloat(b.dataset.tip)===v&&v>0));
+  updConcluir();
+}
+function gorjetaVal(){ return parseFloat(document.getElementById('cc-gorjeta')?.value)||0; }
 function addProdutoConcluir(){
   const sel=document.getElementById('cc-prod-sel'); const p=state.produtos.find(x=>x.id===sel.value);
   if(!p) return;
@@ -1299,18 +1312,33 @@ function updConcluir(){
   const prod=somaProdutosConcluir();
   const f=concluirFinal();
   const liq=calcLiquido(f,concluirTmp.formaPagamento);
+  const tip=gorjetaVal();
   const box=document.getElementById('cc-resumo');
-  if(box) box.innerHTML = (prod>0?`Serviço ${fmtMoney(serv)} + Produtos ${fmtMoney(prod)}<br>`:'')+`Valor final: <strong>${fmtMoney(f)}</strong>`+(Math.abs(liq-f)>0.001?` · Líquido após taxa: <strong>${fmtMoney(liq)}</strong>`:'');
+  if(box) box.innerHTML = (prod>0?`Serviço ${fmtMoney(serv)} + Produtos ${fmtMoney(prod)}<br>`:'')+`Valor final: <strong>${fmtMoney(f)}</strong>`+(Math.abs(liq-f)>0.001?` · Líquido após taxa: <strong>${fmtMoney(liq)}</strong>`:''  )+(tip>0?`<br><span style="color:var(--gold)">✨ Gorjeta: <strong>${fmtMoney(tip)}</strong> → 100% para o barbeiro</span>`:'');
 }
 function confirmarConcluir(id){
   const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
   const f=concluirFinal();
   const liq=calcLiquido(f,concluirTmp.formaPagamento);
+  const tip=gorjetaVal();
   if(a.lancamentoId) state.lancamentos=state.lancamentos.filter(l=>l.id!==a.lancamentoId); // evita duplicar
   const lancId=uid();
   const nomesProd=concluirProdutos.map(p=>p.nome);
   const desc=`${a.servico} — ${a.clienteNome}`+(nomesProd.length?` (+ ${nomesProd.join(', ')})`:'');
   state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'agendamento',produtosComanda:concluirProdutos.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0})),precoVigente:servicoPreco(a.servico)});
+  // Gorjeta: lançamento separado, 100% para o barbeiro (não entra no cálculo de comissão percentual — é lançada como entrada direta)
+  if(tip>0){
+    state.lancamentos.push({
+      id:uid(),tipo:'entrada',
+      descricao:`✨ Gorjeta — ${a.clienteNome} (${a.barbeiro||'Barbeiro'})`,
+      categoria:'Gorjeta',
+      valor:tip,valorLiquido:tip,
+      formaPagamento:concluirTmp.formaPagamento,
+      barbeiro:a.barbeiro||'',
+      data:todayStr(),dataAgendamento:a.data,
+      createdAt:Date.now(),origem:'gorjeta'
+    });
+  }
   if(concluirProdutos.length){
     concluirProdutos.forEach(cp=>{ const prod=state.produtos.find(x=>x.id===cp.id); if(prod && prod.estoque!==''&&prod.estoque!=null) prod.estoque=Math.max(0,parseInt(prod.estoque)-1); });
     save('produtos');
@@ -1406,6 +1434,7 @@ function viewClientes(){
       </div>
       <div class="actions">
           <button class="btn btn-sm" onclick="modalHist('${c.id}')">Histórico</button>
+          <button class="btn btn-sm" onclick="relatorioCliente('${c.id}')">📄 Relatório</button>
           ${isDono()?`<button class="btn btn-sm" onclick="modalCliente('${c.id}')">Editar</button>
           <button class="btn btn-sm ${c.bloqueado?'btn-green':'btn-amber'}" onclick="togBloq('${c.id}')">${c.bloqueado?'Desbloquear':'Bloquear'}</button>
           <button class="btn btn-red btn-sm" onclick="delCliente('${c.id}')">Remover</button>`:''}
@@ -1433,6 +1462,150 @@ function saveCliente(id){
   else state.clientes.push({...data,bloqueado:false,id:uid(),createdAt:Date.now()});
   save('clientes'); closeModal(); render();
 }
+function relatorioCliente(id){
+  const c = state.clientes.find(x=>x.id===id); if(!c) return;
+  const hist = histCliente(c.nome);
+  const concluidos = hist.filter(a=>a.status==='concluido');
+  const cancelados = hist.filter(a=>a.status==='cancelado');
+  const agendados  = hist.filter(a=>a.status==='agendado');
+  const totalGasto = gastoCliente(c.nome);
+  const ticketMedio = concluidos.length>0 ? totalGasto/concluidos.length : 0;
+  const barbearia = state.config.barbearia?.nome||'Barbearia Ceribelli';
+
+  // Serviço mais frequente
+  const porServico = {};
+  concluidos.forEach(a=>{ porServico[a.servico]=(porServico[a.servico]||0)+1; });
+  const favoritoEntry = Object.entries(porServico).sort((a,b)=>b[1]-a[1])[0];
+  const favorito = favoritoEntry ? favoritoEntry[0] : '—';
+
+  // Primeiro e último atendimento
+  const datasConc = concluidos.map(a=>a.data).sort();
+  const primeiroAt = datasConc[0] ? fmtDate(datasConc[0]) : '—';
+  const ultimoAt   = datasConc[datasConc.length-1] ? fmtDate(datasConc[datasConc.length-1]) : '—';
+
+  // Gorjetas deixadas pelo cliente
+  const gorjetasCliente = state.lancamentos
+    .filter(l=>l.origem==='gorjeta' && hist.some(a=>a.data===l.dataAgendamento&&a.clienteNome===c.nome))
+    .reduce((s,l)=>s+l.valor,0);
+
+  // Linhas do histórico
+  const linhas = hist.slice().sort((a,b)=>b.data>a.data?1:-1).map(a=>{
+    const lanc = a.lancamentoId ? state.lancamentos.find(l=>l.id===a.lancamentoId) : null;
+    const valor = lanc ? (lanc.valorLiquido??lanc.valor) : 0;
+    const fpLabel = {pix:'Pix',dinheiro:'Dinheiro',debito:'Débito',credito:'Crédito'}[lanc?.formaPagamento]||'—';
+    const stColor = {concluido:'#16a34a',cancelado:'#dc2626',agendado:'#b45309'}[a.status]||'#6b7280';
+    const stLabel = {concluido:'Concluído',cancelado:'Cancelado',agendado:'Agendado'}[a.status]||a.status;
+    return `<tr>
+      <td>${fmtDate(a.data)}</td>
+      <td>${esc(a.hora||'—')}</td>
+      <td>${esc(a.servico||'—')}</td>
+      <td>${esc(a.barbeiro||'—')}</td>
+      <td><span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${stColor}22;color:${stColor}">${stLabel}</span></td>
+      <td style="text-align:right;font-weight:600;color:#16a34a">${valor>0?fmtMoney(valor):'—'}</td>
+      <td style="text-align:center">${fpLabel}</td>
+    </tr>`;
+  }).join('');
+
+  // Serviços agrupados
+  const linhasServ = Object.entries(porServico).sort((a,b)=>b[1]-a[1]).map(([s,n])=>`<tr>
+    <td>${esc(s)}</td>
+    <td style="text-align:center;font-weight:700">${n}x</td>
+  </tr>`).join('');
+
+  const nascimento = c.dataNascimento ? fmtDate(c.dataNascimento) : '—';
+
+  const htmlRel = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Relatório — ${esc(c.nome)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f9f9f9;color:#1a1a1a;padding:24px}
+  .wrap{max-width:700px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+  .avatar{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#C9A84C,#7A6030);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;flex-shrink:0}
+  h1{font-size:22px;font-weight:700;margin-bottom:2px}
+  .sub{color:#6b7280;font-size:13px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:24px}
+  .kpi{background:#f3f4f6;border-radius:8px;padding:12px;text-align:center}
+  .kpi .lbl{font-size:10px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+  .kpi .val{font-size:18px;font-weight:700;color:#1a1a1a}
+  .kpi.gold .val{color:#b45309}
+  .kpi.green .val{color:#16a34a}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+  .info-card{background:#f9f9f9;border:1px solid #e5e7eb;border-radius:8px;padding:12px}
+  .info-card .lbl{font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+  .info-card .val{font-size:13px;font-weight:600}
+  h2{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:24px}
+  th{background:#f3f4f6;padding:7px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#6b7280}
+  td{padding:7px 10px;border-bottom:1px solid #f5f5f5;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  .footer{margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
+  @media print{body{background:#fff;padding:0}.wrap{box-shadow:none;padding:20px}}
+  @media(max-width:600px){
+    body{padding:8px}.wrap{padding:16px 12px}
+    h1{font-size:17px}.kpis{grid-template-columns:1fr 1fr}
+    .kpis .kpi:last-child{grid-column:1/-1}
+    .info-grid{grid-template-columns:1fr}
+    table{font-size:11px}th,td{padding:5px 6px}
+  }
+</style></head><body>
+<div class="wrap">
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="avatar">${esc(c.nome.charAt(0).toUpperCase())}</div>
+      <div>
+        <h1>${esc(c.nome)}</h1>
+        <div class="sub">${esc(c.telefone||'Sem telefone')}${nascimento!=='—'?' · Nasc: '+nascimento:''}</div>
+        <div class="sub" style="margin-top:2px">${esc(barbearia)}</div>
+      </div>
+    </div>
+    <div style="text-align:right;font-size:11px;color:#9ca3af">Gerado em<br><strong>${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</strong></div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi green"><div class="lbl">Total gasto</div><div class="val">${fmtMoney(totalGasto)}</div></div>
+    <div class="kpi"><div class="lbl">Atendimentos</div><div class="val">${concluidos.length}</div></div>
+    <div class="kpi gold"><div class="lbl">Ticket médio</div><div class="val">${fmtMoney(ticketMedio)}</div></div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card"><div class="lbl">Serviço favorito</div><div class="val">${esc(favorito)}</div></div>
+    <div class="info-card"><div class="lbl">Primeiro atendimento</div><div class="val">${primeiroAt}</div></div>
+    <div class="info-card"><div class="lbl">Último atendimento</div><div class="val">${ultimoAt}</div></div>
+    <div class="info-card"><div class="lbl">Cancelamentos</div><div class="val">${cancelados.length}</div></div>
+    ${gorjetasCliente>0?`<div class="info-card"><div class="lbl">✨ Gorjetas deixadas</div><div class="val" style="color:#b45309">${fmtMoney(gorjetasCliente)}</div></div>`:''}
+    ${c.observacoes?`<div class="info-card" style="grid-column:1/-1"><div class="lbl">Observações</div><div class="val">${esc(c.observacoes)}</div></div>`:''}
+  </div>
+
+  ${linhasServ?`<h2>Serviços mais realizados</h2>
+  <table>
+    <thead><tr><th>Serviço</th><th style="text-align:center">Vezes</th></tr></thead>
+    <tbody>${linhasServ}</tbody>
+  </table>`:''}
+
+  <h2>Histórico completo de atendimentos</h2>
+  <table>
+    <thead><tr><th>Data</th><th>Hora</th><th>Serviço</th><th>Barbeiro</th><th>Status</th><th style="text-align:right">Valor</th><th style="text-align:center">Pagto</th></tr></thead>
+    <tbody>${linhas||'<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Nenhum atendimento registrado</td></tr>'}</tbody>
+  </table>
+
+  <div class="footer">${esc(barbearia)} · Relatório do cliente gerado pelo sistema Na Régua</div>
+</div>
+</body></html>`;
+
+  const blob = new Blob([htmlRel],{type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url,'_blank');
+  if(!w){
+    const a=document.createElement('a');
+    a.href=url;
+    a.download='relatorio-'+c.nome.replace(/\s+/g,'_').toLowerCase()+'.html';
+    a.click();
+  }
+}
+
 function modalHist(id){
   const c=state.clientes.find(x=>x.id===id); const h=histCliente(c.nome);
   openModal(`
@@ -1495,7 +1668,10 @@ function viewBarbeiros(){
         return s+(baseServ-totalProd)+margemProd;
       },0);
       const pct=parseFloat(com[b])||0;
+      // Gorjetas do barbeiro no período (100% dele, não entra no % de comissão)
+      const gorjetas=state.lancamentos.filter(l=>l.origem==='gorjeta'&&l.barbeiro===b&&filtroAg({data:l.dataAgendamento||l.data})).reduce((s,l)=>s+l.valor,0);
       const comissao=receita*pct/100;
+      const totalBarbeiro=comissao+gorjetas;
       const byServico={};
       ags.forEach(a=>{ byServico[a.servico]=(byServico[a.servico]||0)+1; });
       return `<div class="card list-item" style="padding:16px">
@@ -1507,17 +1683,22 @@ function viewBarbeiros(){
         </div>
         ${agsPac.length?`<div style="padding:8px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px">📦 +${agsPac.length} atendimento(s) de pacote — sem lançamento financeiro individual</div>`:''}
         ${Object.keys(byServico).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${Object.entries(byServico).map(([s,n])=>`<span style="padding:3px 10px;background:var(--inner);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text-2)">${esc(s)}: <strong>${n}x</strong></span>`).join('')}</div>`:''}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
           <div style="padding:10px;background:var(--inner);border-radius:8px;text-align:center">
             <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">% Comissão</div>
             <div style="font-size:16px;font-weight:700;color:var(--gold)">${pct}%</div>
           </div>
-          <div style="padding:10px;background:${comissao>0?'var(--amber-bg)':'var(--inner)'};border:1px solid ${comissao>0?'var(--amber)':'var(--border)'};border-radius:8px;text-align:center">
-            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">A pagar</div>
-            <div style="font-size:16px;font-weight:700;color:${comissao>0?'var(--amber)':'var(--text-3)'}">${fmtMoney(comissao)}</div>
+          <div style="padding:10px;background:${gorjetas>0?'rgba(201,168,76,.1)':'var(--inner)'};border:1px solid ${gorjetas>0?'var(--gold)':'var(--border)'};border-radius:8px;text-align:center">
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">✨ Gorjetas</div>
+            <div style="font-size:16px;font-weight:700;color:${gorjetas>0?'var(--gold)':'var(--text-3)'}">${fmtMoney(gorjetas)}</div>
+          </div>
+          <div style="padding:10px;background:${totalBarbeiro>0?'var(--amber-bg)':'var(--inner)'};border:1px solid ${totalBarbeiro>0?'var(--amber)':'var(--border)'};border-radius:8px;text-align:center">
+            <div style="font-size:11px;color:var(--text-3);margin-bottom:3px">Total a pagar</div>
+            <div style="font-size:16px;font-weight:700;color:${totalBarbeiro>0?'var(--amber)':'var(--text-3)'}">${fmtMoney(totalBarbeiro)}</div>
           </div>
         </div>
-        ${comissao>0?`<button class="btn btn-amber btn-sm" style="margin-top:10px;width:100%" onclick="pagarComissao('${b}',${comissao})">💰 Pagar comissão (${fmtMoney(comissao)})</button>`:''}
+        ${gorjetas>0?`<div style="padding:8px 12px;background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:8px;margin-top:8px;font-size:11px;color:var(--gold)">✨ Gorjetas: ${fmtMoney(gorjetas)} · Comissão (${pct}%): ${fmtMoney(comissao)} · Total: ${fmtMoney(totalBarbeiro)}</div>`:''}
+        ${totalBarbeiro>0?`<button class="btn btn-amber btn-sm" style="margin-top:10px;width:100%" onclick="pagarComissao('${b}',${totalBarbeiro})">💰 Pagar ${fmtMoney(totalBarbeiro)} (comissão + gorjetas)</button>`:''}
 <button class="btn btn-sm" style="margin-top:6px;width:100%" onclick="gerarRelatorioBarbeiro('${b}')">📄 Gerar relatório de comissão</button>
         ${pct===0?`<p style="font-size:11px;color:var(--text-3);margin-top:8px;text-align:center">Configure o % em Config → Financeiro</p>`:''}
         ${ags.length===0?`<p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:8px">Nenhum serviço concluído neste período</p>`:''}
@@ -2305,6 +2486,8 @@ function viewConfig(){
       <h3 style="font-size:14px;margin-bottom:10px">💾 Backup dos Dados</h3>
       <p style="font-size:12px;color:var(--text-2);margin-bottom:12px">Exporte um arquivo com todos os seus dados. Em caso de problema, importe o arquivo para restaurar tudo.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-amber" onclick="salvarNoGDrive()">☁️ Salvar no Google Drive</button>
+        <button class="btn btn-primary" onclick="modalAutoBackups()">🕐 Backups automáticos</button>
         <button class="btn btn-primary" onclick="exportarBackup()">⬇️ Exportar backup</button>
         <label class="btn" style="cursor:pointer">📂 Importar backup<input type="file" accept=".json" style="display:none" onchange="importarBackup(event)"></label>
       </div>
@@ -2359,6 +2542,15 @@ function viewConfig(){
       <p style="font-size:12px;color:var(--text-2);margin-bottom:12px">Se você tinha dados no Firebase antigo, clique para recuperar. Isso vai substituir os dados atuais pelos dados do Firebase.</p>
       <div style="font-size:11px;color:var(--amber);padding:8px 12px;background:var(--amber-bg);border-radius:7px;margin-bottom:12px">⚠️ Se aparecer erro de permissão, acesse o Firebase Console → Firestore → Regras e mude para: <code>allow read, write: if true;</code></div>
       <button class="btn btn-amber" onclick="recuperarDoFirebase()">🔥 Recuperar do Firebase</button>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:6px">☁️ Backup no Google Drive</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:12px">Todo dia após as 21h aparece um aviso automático para salvar o backup do dia no seu Google Drive. Você também pode salvar a qualquer hora.</p>
+      <div style="padding:9px 12px;background:var(--inner);border-radius:8px;font-size:12px;color:var(--text-2);margin-bottom:12px">
+        📁 Os arquivos ficam em <strong style="color:var(--gold)">Google Drive → Backups Barbearia</strong><br>
+        <span style="font-size:11px;color:var(--text-3)">Um arquivo por dia: backup-ceribelli-AAAA-MM-DD.json</span>
+      </div>
+      <button class="btn btn-amber" style="width:100%" onclick="salvarNoGDrive()">☁️ Salvar no Drive agora</button>
     </div>
     <div class="card" style="margin-top:14px">
       <h3 style="font-size:14px;margin-bottom:10px">💾 Backup Manual</h3>
@@ -2674,9 +2866,352 @@ async function criarFuncionario(){
     alert(`✅ Funcionário ${nome} cadastrado!\nEle já pode entrar com o email e senha definidos.`+(barbeiro?`\n\nAgenda vinculada: ${barbeiro}`:''));
   } catch(e){ alert('Erro ao cadastrar: '+e.message); }
 }
+/* ============ AUTO-BACKUP LOCAL DIÁRIO + ALERTA FIREBASE ============ */
+
+function autoBackupDiario() {
+  try {
+    const hoje = todayStr();
+    if (LS.get('bc:autobackup:ultima') === hoje) return;
+    const snapshot = JSON.stringify({
+      clientes: state.clientes, agendamentos: state.agendamentos,
+      lancamentos: state.lancamentos, produtos: produtosSemFoto(state.produtos),
+      lembretesEnviados: state.lembretesEnviados, notifAlteracao: state.notifAlteracao,
+      notas: state.notas, config: state.config, pacotes: state.pacotes,
+      geradoEm: new Date().toISOString()
+    });
+    LS.set('bc:autobackup:' + hoje, snapshot);
+    LS.set('bc:autobackup:ultima', hoje);
+    for (let i = 8; i <= 30; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const iso = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      try { localStorage.removeItem('bc:autobackup:' + iso); } catch(e) {}
+    }
+    console.info('[AutoBackup] Salvo:', hoje);
+  } catch(e) { console.warn('[AutoBackup]', e); }
+}
+
+function listarAutoBackups() {
+  const backups = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('bc:autobackup:2'))
+        backups.push({ key, data: key.replace('bc:autobackup:', '') });
+    }
+  } catch(e) {}
+  return backups.sort((a, b) => b.data.localeCompare(a.data));
+}
+
+function restaurarAutoBackup(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const snap = raw ? JSON.parse(raw) : null;
+    if (!snap || !snap.agendamentos) { alert('Backup inválido ou corrompido.'); return; }
+    const dataFmt = snap.geradoEm ? fmtDate(snap.geradoEm.slice(0,10)) : key.replace('bc:autobackup:','');
+    if (!confirm(
+      'Restaurar backup de ' + dataFmt + '?\n\n' +
+      'Agendamentos: ' + (snap.agendamentos?.length||0) + '\n' +
+      'Clientes: ' + (snap.clientes?.length||0) + '\n' +
+      'Lançamentos: ' + (snap.lancamentos?.length||0) + '\n\n' +
+      'Os dados atuais serão substituídos.'
+    )) return;
+    if (snap.clientes)          state.clientes = snap.clientes;
+    if (snap.agendamentos)      state.agendamentos = snap.agendamentos;
+    if (snap.lancamentos)       state.lancamentos = snap.lancamentos;
+    if (snap.produtos)          state.produtos = snap.produtos;
+    if (snap.lembretesEnviados) state.lembretesEnviados = snap.lembretesEnviados;
+    if (snap.notifAlteracao)    state.notifAlteracao = snap.notifAlteracao;
+    if (snap.notas !== undefined){ state.notas = snap.notas; LS.set('bc:notas', state.notas); if(db) db.collection('dados').doc('notas').set({value:state.notas}).catch(()=>{}); }
+    if (snap.config)            state.config = snap.config;
+    if (snap.pacotes)           state.pacotes = snap.pacotes;
+    ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao','pacotes'].forEach(k => save(k));
+    saveConfig(); migrarDados(); render();
+    alert('✅ Backup de ' + dataFmt + ' restaurado!');
+  } catch(e) { alert('❌ Erro: ' + e.message); }
+}
+
+function modalAutoBackups() {
+  const lista = listarAutoBackups();
+  const rows = lista.length ? lista.map(function(b) {
+    let info = '';
+    try {
+      const snap = JSON.parse(localStorage.getItem(b.key)||'null');
+      if (snap) info = (snap.agendamentos?.length||0)+' agend. · '+(snap.clientes?.length||0)+' clientes · '+(snap.lancamentos?.length||0)+' lanç.';
+    } catch(e) {}
+    return '<div style="padding:12px;background:var(--inner);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px">'
+      + '<div><div style="font-weight:600;font-size:13px">'+fmtDate(b.data)+'</div>'
+      + '<div style="font-size:11px;color:var(--text-3);margin-top:2px">'+info+'</div></div>'
+      + '<button class="btn btn-amber btn-sm" onclick="restaurarAutoBackup(\'' + b.key + '\')">↺ Restaurar</button></div>';
+  }).join('')
+  : '<div style="text-align:center;padding:24px;color:var(--text-3);font-size:13px">Nenhum backup automático encontrado.<br><span style="font-size:11px">O primeiro será gerado hoje após o login.</span></div>';
+  openModal(
+    '<div class="modal-head"><h2>🕐 Backups Automáticos</h2><button onclick="closeModal()">'+ICON.x(20)+'</button></div>'
+    + '<p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Snapshots salvos diariamente neste dispositivo — independentes do Firebase. Últimos 7 dias mantidos.</p>'
+    + rows
+    + '<div class="modal-foot"><button class="btn" onclick="closeModal()">Fechar</button>'
+    + '<button class="btn btn-primary" onclick="exportarBackup()">⬇️ Exportar agora</button></div>'
+  );
+}
+
+function mostrarBannerErroFirebase() {
+  if (document.getElementById('fb-erro-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'fb-erro-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:8000;background:#7A1A1A;border-bottom:2px solid #EF4444;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap';
+  banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#FCA5A5">'
+    + '<span style="font-size:16px">⚠️</span>'
+    + '<span><strong>Firebase sem permissão</strong> — dados não estão sendo salvos na nuvem. Faça backup agora antes de sair.</span></div>'
+    + '<div style="display:flex;gap:8px;flex-shrink:0">'
+    + '<button onclick="exportarBackup()" style="background:#EF4444;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;color:#fff;cursor:pointer">⬇️ Backup agora</button>'
+    + '<button onclick="document.getElementById(\'fb-erro-banner\').remove()" style="background:transparent;border:1px solid #EF444450;border-radius:6px;padding:6px 10px;font-size:12px;color:#FCA5A5;cursor:pointer">✕</button></div>';
+  document.body.prepend(banner);
+}
+
+function verificarConexaoFirebase() {
+  if (!db) return;
+  db.collection('dados').doc('agendamentos').get()
+    .then(function() {
+      const b = document.getElementById('fb-erro-banner');
+      if (b) b.remove();
+    })
+    .catch(function(e) {
+      if (e.code === 'permission-denied' || (e.message && e.message.includes('permission'))) {
+        mostrarBannerErroFirebase();
+        setCloudStatus('🔴 Firebase: sem permissão', '#EF4444');
+      }
+    });
+}
+
+function mostrarAvisoBackup() {
+  const hoje = todayStr();
+  if (LS.get('bc:aviso-backup') === hoje) return;
+  LS.set('bc:aviso-backup', hoje);
+  setTimeout(function() {
+    if (document.getElementById('backup-aviso')) return;
+    const div = document.createElement('div');
+    div.id = 'backup-aviso';
+    div.style.cssText = 'position:fixed;bottom:24px;right:16px;left:16px;max-width:380px;margin:0 auto;background:#141414;border:1px solid #C9A84C50;border-radius:14px;padding:16px;z-index:6500;box-shadow:0 8px 32px rgba(0,0,0,.7);display:flex;gap:12px;align-items:flex-start';
+    div.innerHTML = '<div style="font-size:24px;flex-shrink:0;line-height:1">💾</div>'
+      + '<div style="flex:1">'
+      + '<div style="font-weight:700;font-size:13px;margin-bottom:4px;color:#F5F5F5">Backup automático salvo!</div>'
+      + '<div style="font-size:12px;color:#9CA3AF;margin-bottom:12px">Dados salvos localmente (7 dias de histórico). Para segurança extra, exporte um arquivo.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button onclick="exportarBackup();document.getElementById(\'backup-aviso\').remove()" style="background:#C9A84C;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;color:#0A0A0A;cursor:pointer">⬇️ Exportar</button>'
+      + '<button onclick="modalAutoBackups();document.getElementById(\'backup-aviso\').remove()" style="background:transparent;border:1px solid #252525;border-radius:7px;padding:7px 14px;font-size:12px;color:#9CA3AF;cursor:pointer">Ver backups</button>'
+      + '<button onclick="document.getElementById(\'backup-aviso\').remove()" style="background:transparent;border:none;padding:7px 8px;font-size:12px;color:#6B7280;cursor:pointer">Agora não</button>'
+      + '</div></div>'
+      + '<button onclick="document.getElementById(\'backup-aviso\').remove()" style="background:none;border:none;color:#6B7280;font-size:20px;cursor:pointer;flex-shrink:0;line-height:1;padding:0">×</button>';
+    document.body.appendChild(div);
+    setTimeout(function() { const el = document.getElementById('backup-aviso'); if (el) el.remove(); }, 15000);
+  }, 5000);
+}
+
+
+/* ============ GOOGLE DRIVE BACKUP NOTURNO ============ */
+
+const GDRIVE_CLIENT_ID = '342965780941-5ufslul60s44u4hm0qirakklehv7ulmj.apps.googleusercontent.com';
+const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let _gdriveToken = null;
+let _gdriveTokenExpiry = 0;
+
+function gdriveTokenValido() {
+  return _gdriveToken && Date.now() < _gdriveTokenExpiry;
+}
+
+function autenticarGDrive() {
+  return new Promise(function(resolve, reject) {
+    if (gdriveTokenValido()) { resolve(_gdriveToken); return; }
+    // Carrega a lib do Google se ainda não carregou
+    function abrirPopup() {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: GDRIVE_CLIENT_ID,
+        scope: GDRIVE_SCOPE,
+        callback: function(resp) {
+          if (resp.error) { reject(resp.error); return; }
+          _gdriveToken = resp.access_token;
+          _gdriveTokenExpiry = Date.now() + (resp.expires_in - 60) * 1000;
+          resolve(_gdriveToken);
+        }
+      });
+      client.requestAccessToken({ prompt: 'consent' });
+    }
+    if (typeof google !== 'undefined' && google.accounts) {
+      abrirPopup();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.onload = abrirPopup;
+      script.onerror = function() { reject('Falha ao carregar Google Auth'); };
+      document.head.appendChild(script);
+    }
+  });
+}
+
+async function salvarNoGDrive() {
+  // Fecha o popup de aviso se existir
+  const aviso = document.getElementById('gdrive-aviso');
+  if (aviso) aviso.remove();
+
+  // Mostra loading
+  const loading = document.createElement('div');
+  loading.id = 'gdrive-loading';
+  loading.style.cssText = 'position:fixed;bottom:24px;right:16px;left:16px;max-width:360px;margin:0 auto;background:#141414;border:1px solid #C9A84C50;border-radius:14px;padding:16px 20px;z-index:7000;box-shadow:0 8px 32px rgba(0,0,0,.7);display:flex;align-items:center;gap:12px';
+  loading.innerHTML = '<div style="width:20px;height:20px;border:2px solid #252525;border-top-color:#C9A84C;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0"></div>'
+    + '<div style="font-size:13px;color:#F5F5F5">Conectando ao Google Drive...</div>';
+  document.body.appendChild(loading);
+
+  try {
+    const token = await autenticarGDrive();
+
+    // Atualiza loading
+    const loadingEl = document.getElementById('gdrive-loading');
+    if (loadingEl) loadingEl.querySelector('div:last-child').textContent = 'Salvando backup...';
+
+    // Monta o arquivo JSON
+    const ontem = new Date(); ontem.setDate(ontem.getDate() - 0);
+    const dataStr = ontem.getFullYear() + '-'
+      + String(ontem.getMonth()+1).padStart(2,'0') + '-'
+      + String(ontem.getDate()).padStart(2,'0');
+
+    const dados = {
+      clientes: state.clientes,
+      agendamentos: state.agendamentos,
+      lancamentos: state.lancamentos,
+      produtos: produtosSemFoto(state.produtos),
+      lembretesEnviados: state.lembretesEnviados,
+      notifAlteracao: state.notifAlteracao,
+      notas: state.notas,
+      config: state.config,
+      pacotes: state.pacotes,
+      geradoEm: new Date().toISOString(),
+      versao: VERSAO
+    };
+    const conteudo = JSON.stringify(dados, null, 2);
+    const nomeArquivo = 'backup-ceribelli-' + dataStr + '.json';
+
+    // Verifica se já existe pasta "Backups Barbearia"
+    let pastaId = null;
+    const buscaPasta = await fetch(
+      'https://www.googleapis.com/drive/v3/files?q=name%3D%22Backups%20Barbearia%22%20and%20mimeType%3D%22application%2Fvnd.google-apps.folder%22%20and%20trashed%3Dfalse&fields=files(id)',
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+    const resPasta = await buscaPasta.json();
+    if (resPasta.files && resPasta.files.length > 0) {
+      pastaId = resPasta.files[0].id;
+    } else {
+      // Cria a pasta
+      const criaPasta = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Backups Barbearia', mimeType: 'application/vnd.google-apps.folder' })
+      });
+      const novaPasta = await criaPasta.json();
+      pastaId = novaPasta.id;
+    }
+
+    // Verifica se já existe arquivo com esse nome (para substituir)
+    const buscaArq = await fetch(
+      'https://www.googleapis.com/drive/v3/files?q=name%3D%22' + nomeArquivo + '%22%20and%20trashed%3Dfalse&fields=files(id)',
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+    const resArq = await buscaArq.json();
+    let arqId = resArq.files && resArq.files.length > 0 ? resArq.files[0].id : null;
+
+    // Upload multipart
+    const boundary = 'backup_ceribelli_boundary';
+    const metadados = arqId ? {} : { name: nomeArquivo, parents: [pastaId] };
+    const body = arqId
+      ? new Blob([conteudo], { type: 'application/json' })
+      : new Blob([
+          '--' + boundary + '\r\n',
+          'Content-Type: application/json\r\n\r\n',
+          JSON.stringify(metadados) + '\r\n',
+          '--' + boundary + '\r\n',
+          'Content-Type: application/json\r\n\r\n',
+          conteudo + '\r\n',
+          '--' + boundary + '--'
+        ], { type: 'multipart/related; boundary=' + boundary });
+
+    const url = arqId
+      ? 'https://www.googleapis.com/upload/drive/v3/files/' + arqId + '?uploadType=media'
+      : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+    const upload = await fetch(url, {
+      method: arqId ? 'PATCH' : 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        ...(arqId ? { 'Content-Type': 'application/json' } : { 'Content-Type': 'multipart/related; boundary=' + boundary })
+      },
+      body: body
+    });
+
+    const resultado = await upload.json();
+    const loadingEl2 = document.getElementById('gdrive-loading');
+    if (loadingEl2) loadingEl2.remove();
+
+    if (resultado.id) {
+      // Registra que o backup foi feito hoje
+      LS.set('bc:gdrive-backup-data', dataStr);
+      // Mostra sucesso
+      const ok = document.createElement('div');
+      ok.style.cssText = 'position:fixed;bottom:24px;right:16px;left:16px;max-width:360px;margin:0 auto;background:#052E16;border:1px solid #22C55E50;border-radius:14px;padding:16px 20px;z-index:7000;box-shadow:0 8px 32px rgba(0,0,0,.7);display:flex;align-items:center;gap:12px';
+      ok.innerHTML = '<div style="font-size:22px;flex-shrink:0">✅</div>'
+        + '<div><div style="font-weight:700;font-size:13px;color:#22C55E;margin-bottom:3px">Backup salvo no Google Drive!</div>'
+        + '<div style="font-size:12px;color:#9CA3AF">Pasta: Backups Barbearia / ' + nomeArquivo + '</div></div>'
+        + '<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#6B7280;font-size:18px;cursor:pointer;flex-shrink:0;margin-left:auto">×</button>';
+      document.body.appendChild(ok);
+      setTimeout(function() { if (ok.parentElement) ok.remove(); }, 6000);
+    } else {
+      throw new Error('Upload falhou: ' + JSON.stringify(resultado));
+    }
+
+  } catch(err) {
+    const loadingEl3 = document.getElementById('gdrive-loading');
+    if (loadingEl3) loadingEl3.remove();
+    console.error('[GDrive]', err);
+    alert('❌ Erro ao salvar no Google Drive:\n' + (err.message || err));
+  }
+}
+
+function mostrarAvisoGDrive() {
+  // Mostra apenas após as 21h, uma vez por dia
+  const agora = new Date();
+  if (agora.getHours() < 21) return; // só após as 21h
+
+  const hoje = agora.getFullYear() + '-'
+    + String(agora.getMonth()+1).padStart(2,'0') + '-'
+    + String(agora.getDate()).padStart(2,'0');
+
+  const jaFezHoje = LS.get('bc:gdrive-backup-data') === hoje;
+  const jaViuHoje = LS.get('bc:gdrive-aviso-data') === hoje;
+  if (jaFezHoje || jaViuHoje) return;
+
+  LS.set('bc:gdrive-aviso-data', hoje);
+
+  setTimeout(function() {
+    if (document.getElementById('gdrive-aviso')) return;
+    const div = document.createElement('div');
+    div.id = 'gdrive-aviso';
+    div.style.cssText = 'position:fixed;bottom:24px;right:16px;left:16px;max-width:380px;margin:0 auto;background:#141414;border:1px solid #C9A84C60;border-radius:14px;padding:16px;z-index:7000;box-shadow:0 8px 32px rgba(0,0,0,.8);display:flex;gap:12px;align-items:flex-start';
+    div.innerHTML = '<div style="font-size:26px;flex-shrink:0;line-height:1">☁️</div>'
+      + '<div style="flex:1">'
+      + '<div style="font-weight:700;font-size:13px;margin-bottom:4px;color:#F5F5F5">Backup noturno no Google Drive</div>'
+      + '<div style="font-size:12px;color:#9CA3AF;margin-bottom:14px">Já passou das 21h — hora de salvar o backup de hoje no Drive. Leva só alguns segundos.</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button onclick="salvarNoGDrive()" style="background:#C9A84C;border:none;border-radius:7px;padding:9px 18px;font-size:13px;font-weight:700;color:#0A0A0A;cursor:pointer">☁️ Salvar no Drive</button>'
+      + '<button onclick="document.getElementById(\'gdrive-aviso\').remove()" style="background:transparent;border:1px solid #252525;border-radius:7px;padding:9px 14px;font-size:12px;color:#6B7280;cursor:pointer">Agora não</button>'
+      + '</div></div>'
+      + '<button onclick="document.getElementById(\'gdrive-aviso\').remove()" style="background:none;border:none;color:#6B7280;font-size:20px;cursor:pointer;flex-shrink:0;line-height:1;padding:0">×</button>';
+    document.body.appendChild(div);
+  }, 3000);
+}
+
+
 /* ============ INIT ============ */
 async function boot(){
   migrarDados();
+  autoBackupDiario();
+  mostrarAvisoBackup();
   applyTema();
   // loading state
   const viewEl=document.getElementById('view');
@@ -2721,6 +3256,9 @@ async function boot(){
   // Verificar notificações a cada 60 segundos
   verificarNotificacoes();
   setInterval(verificarNotificacoes, 60000);
+  mostrarAvisoGDrive();
+  setTimeout(verificarConexaoFirebase, 4000);
+  setInterval(verificarConexaoFirebase, 5 * 60 * 1000);
 }
 boot();
 window.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeDrawer(); if(_modoOpAtivo)toggleModoOp(); } });

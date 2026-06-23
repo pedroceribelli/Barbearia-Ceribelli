@@ -1253,6 +1253,7 @@ function enviarMsgEscolhida(id,i){
 /* ============ CONCLUIR ATENDIMENTO -> FINANCEIRO ============ */
 let concluirTmp={formaPagamento:'pix'};
 let concluirProdutos=[];
+let pacoteTmp={formaPagamento:'pix'};
 function modalConcluir(id){
   const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
   // Fluxo especial para atendimento de pacote
@@ -1260,14 +1261,26 @@ function modalConcluir(id){
     const pk=state.pacotes.find(x=>x.id===a.pacoteId);
     const s=pk?.servicos[a.pacoteServIdx];
     const rest=s?(s.quantidade-(s.usados||0)):0;
+    const eraZero = s && (s.usados||0)===0;
+    const valorPac = pk?.valorTotal||0;
+    pacoteTmp={formaPagamento:'pix'};
     openModal(`
       <div class="modal-head"><h2>Concluir Atendimento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
       <div style="padding:12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:4px">📦 Atendimento de Pacote</div>
         <div style="font-size:12px;color:var(--text-2)">Pacote: <strong>${esc(pk?.nome||'Pacote')}</strong> · Cliente: <strong>${esc(a.clienteNome)}</strong></div>
         <div style="font-size:12px;color:var(--text-2);margin-top:3px">Serviço: <strong>${esc(a.servico)}</strong> · Restantes após este: <strong>${Math.max(0,rest-1)}</strong></div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Nenhum lançamento financeiro será criado — pagamento incluído no pacote mensal.</div>
+        ${eraZero && valorPac>0
+          ? `<div style="font-size:11px;color:var(--amber);margin-top:6px;font-weight:600">💰 1º atendimento do ciclo — será lançado ${fmtMoney(valorPac)} no financeiro.</div>`
+          : `<div style="font-size:11px;color:var(--text-3);margin-top:6px">Nenhum lançamento financeiro será criado — pagamento incluído no pacote mensal.</div>`
+        }
       </div>
+      ${eraZero && valorPac>0
+        ? `<div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="pk-pay">
+            ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setPacotePay('${v}')">${l}</button>`).join('')}
+          </div></div>`
+        : ''
+      }
       <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="concluirPacote('${id}')">✓ Concluir e marcar uso</button></div>
     `);
     return;
@@ -1302,6 +1315,7 @@ function modalConcluir(id){
   renderProdutosConcluir(); updConcluir();
 }
 function setConcluirPay(p){ concluirTmp.formaPagamento=p; document.querySelectorAll('#cc-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); updConcluir(); }
+function setPacotePay(p){ pacoteTmp.formaPagamento=p; document.querySelectorAll('#pk-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); }
 function setConcluirTip(v){
   const inp=document.getElementById('cc-gorjeta'); if(inp) inp.value=v||'';
   document.querySelectorAll('[data-tip]').forEach(b=>b.classList.toggle('on',parseFloat(b.dataset.tip)===v&&v>0));
@@ -1898,13 +1912,15 @@ function concluirPacote(id){
     const nomePac = pac?.nome||'Pacote';
     const valorPac = pac?.valorTotal||0;
     if(eraZero && valorPac>0){
-      // 1º serviço do ciclo: lança entrada com valor
+      // 1º serviço do ciclo: lança entrada com valor e forma de pagamento escolhida
+      const fp = pacoteTmp.formaPagamento||'pix';
+      const liqPac = calcLiquido(valorPac, fp);
       state.lancamentos.push({
         id:uid(),tipo:'entrada',
         descricao:`Pacote: ${nomePac} — ${a.clienteNome} (1º atendimento do mês)`,
         categoria:'Serviço',
-        valor:valorPac,valorLiquido:valorPac,
-        formaPagamento:'pix',
+        valor:valorPac,valorLiquido:liqPac,
+        formaPagamento:fp,
         data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote'
       });
     } else {

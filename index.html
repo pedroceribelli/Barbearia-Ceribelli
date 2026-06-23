@@ -1692,7 +1692,7 @@ function viewBarbeiros(){
       const agsPac=ags.filter(a=>a.ePacote);
       const receita=agsPag.reduce((s,a)=>{
         const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-        const baseServ=lanc?(lanc.valorLiquido??lanc.valor):(a.preco||servicoPreco(a.servico)||0);
+        const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
         const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
         const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
         return s+(baseServ-totalProd)+margemProd;
@@ -1748,7 +1748,7 @@ function viewBarbeiros(){
   const agsPag = ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
   const receita = agsPag.reduce((s,a)=>{
     const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-    const baseServ=lanc?(lanc.valorLiquido??lanc.valor):(a.preco||servicoPreco(a.servico)||0);
+    const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
     const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
     const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
     return s+(baseServ-totalProd)+margemProd;
@@ -1773,7 +1773,7 @@ function viewBarbeiros(){
    .sort((a,x)=>`${a.data}${a.hora}`>`${x.data}${x.hora}`?1:-1)
     .map(a=>{
       const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-      const baseServ=lanc?(lanc.valorLiquido??lanc.valor):(a.preco||servicoPreco(a.servico)||0);
+      const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
       const prods=lanc?(lanc.produtosComanda||[]):[];
       const totalProd=prods.reduce((sp,p)=>sp+p.preco,0);
       const margemProd=prods.reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0);
@@ -1855,7 +1855,7 @@ function viewBarbeiros(){
   </table>
   <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:13px">
     <strong>💰 Comissão a pagar:</strong> ${pct}% sobre ${fmtMoney(receita)} = <strong style="color:#d97706;font-size:15px">${fmtMoney(comissao)}</strong>
-    <div style="font-size:11px;color:#92400e;margin-top:4px">Calculado sobre o faturamento líquido (já descontadas taxas de maquininha). Alinhado com o financeiro.</div>
+    <div style="font-size:11px;color:#92400e;margin-top:4px">Calculado sobre o valor bruto dos serviços. As taxas de maquininha são custo da casa e não entram na comissão.</div>
   </div>
   <div class="footer">${esc(barbearia)} · Relatório gerado pelo sistema Na Régua</div>
 </div>

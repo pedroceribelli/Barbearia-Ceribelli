@@ -957,8 +957,9 @@ function modalAgenda(id){
     </div>`:''}
     <div id="ag-modo-cad" style="display:none">
       <div class="field"><label class="lbl">Buscar Cliente</label>
-        <select id="m-cliente-sel" class="inp" onchange="selecionarCliente()"><option value="">Buscar cliente cadastrado...</option>${state.clientes.filter(c=>!c.bloqueado).slice().sort((x,y)=>x.nome.localeCompare(y.nome)).map(c=>`<option value="${c.id}">${esc(c.nome)}${c.telefone?' · '+esc(c.telefone):''}</option>`).join('')}</select>
-        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Dica: digite as primeiras letras do nome para localizar.</div>
+        <input id="m-cli-busca" class="inp" placeholder="Digite o nome ou telefone..." oninput="filtrarClientesAg()" autocomplete="off">
+        <div id="m-cli-sel-info" style="display:none;margin-top:8px;padding:10px 12px;background:rgba(201,168,76,.1);border:1px solid var(--gold);border-radius:8px;font-size:13px;color:var(--gold);font-weight:600"></div>
+        <div id="m-cli-lista" style="margin-top:8px;max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px"></div>
       </div>
     </div>
     <div id="ag-modo-novo">
@@ -999,13 +1000,42 @@ function setAgModo(m){
   if(cad) cad.style.display=m==='cadastrado'?'block':'none';
   if(novo) novo.style.display=m==='novo'?'block':'none';
   document.querySelectorAll('#ag-modo-toggle .toggle').forEach(b=>b.classList.toggle('on-gold',b.dataset.m===m));
+  if(m==='cadastrado') filtrarClientesAg();
 }
-function selecionarCliente(){
-  const id=document.getElementById('m-cliente-sel').value;
+function filtrarClientesAg(){
+  const inp=document.getElementById('m-cli-busca');
+  const lista=document.getElementById('m-cli-lista');
+  if(!inp||!lista) return;
+  const q=inp.value.trim().toLowerCase();
+  const qd=q.replace(/\D/g,'');
+  let arr=state.clientes.filter(c=>!c.bloqueado).slice().sort((a,b)=>a.nome.localeCompare(b.nome));
+  if(q){
+    arr=arr.filter(c=>{
+      const nome=c.nome.toLowerCase();
+      const tel=(c.telefone||'').toLowerCase();
+      const teld=(c.telefone||'').replace(/\D/g,'');
+      return nome.includes(q)||tel.includes(q)||(qd&&teld.includes(qd));
+    });
+  }
+  if(!arr.length){
+    lista.innerHTML=`<div style="text-align:center;padding:16px;color:var(--text-3);font-size:13px">Nenhum cliente encontrado</div>`;
+    return;
+  }
+  lista.innerHTML=arr.map(c=>`<div onclick="escolherClienteAg('${c.id}')" style="cursor:pointer;padding:11px 13px;background:var(--inp-bg);border:1px solid var(--border);border-radius:10px" onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
+    <div style="font-size:14px;font-weight:600;color:var(--text)">${esc(c.nome)}</div>
+    ${c.telefone?`<div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(c.telefone)}</div>`:''}
+  </div>`).join('');
+}
+function escolherClienteAg(id){
   const c=state.clientes.find(x=>x.id===id);
-  document.getElementById('m-nome').value=c?c.nome:'';
-  document.getElementById('m-tel').value=c?(c.telefone||''):'';
-  atualizarServicosModal(c?.nome||'');
+  if(!c) return;
+  document.getElementById('m-nome').value=c.nome;
+  document.getElementById('m-tel').value=c.telefone||'';
+  const info=document.getElementById('m-cli-sel-info');
+  if(info){ info.style.display='block'; info.textContent='✓ '+c.nome+(c.telefone?' · '+c.telefone:''); }
+  const busca=document.getElementById('m-cli-busca'); if(busca) busca.value='';
+  const lista=document.getElementById('m-cli-lista'); if(lista) lista.innerHTML='';
+  atualizarServicosModal(c.nome);
 }
 function atualizarServicosModal(nomeCliente){
   const sel=document.getElementById('m-serv'); if(!sel) return;

@@ -1253,7 +1253,6 @@ function enviarMsgEscolhida(id,i){
 /* ============ CONCLUIR ATENDIMENTO -> FINANCEIRO ============ */
 let concluirTmp={formaPagamento:'pix'};
 let concluirProdutos=[];
-let pacoteTmp={formaPagamento:'pix'};
 function modalConcluir(id){
   const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
   // Fluxo especial para atendimento de pacote
@@ -1261,26 +1260,14 @@ function modalConcluir(id){
     const pk=state.pacotes.find(x=>x.id===a.pacoteId);
     const s=pk?.servicos[a.pacoteServIdx];
     const rest=s?(s.quantidade-(s.usados||0)):0;
-    const eraZero = s && (s.usados||0)===0;
-    const valorPac = pk?.valorTotal||0;
-    pacoteTmp={formaPagamento:'pix'};
     openModal(`
       <div class="modal-head"><h2>Concluir Atendimento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
       <div style="padding:12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:4px">📦 Atendimento de Pacote</div>
         <div style="font-size:12px;color:var(--text-2)">Pacote: <strong>${esc(pk?.nome||'Pacote')}</strong> · Cliente: <strong>${esc(a.clienteNome)}</strong></div>
         <div style="font-size:12px;color:var(--text-2);margin-top:3px">Serviço: <strong>${esc(a.servico)}</strong> · Restantes após este: <strong>${Math.max(0,rest-1)}</strong></div>
-        ${eraZero && valorPac>0
-          ? `<div style="font-size:11px;color:var(--amber);margin-top:6px;font-weight:600">💰 1º atendimento do ciclo — será lançado ${fmtMoney(valorPac)} no financeiro.</div>`
-          : `<div style="font-size:11px;color:var(--text-3);margin-top:6px">Nenhum lançamento financeiro será criado — pagamento incluído no pacote mensal.</div>`
-        }
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Nenhum lançamento financeiro será criado — pagamento incluído no pacote mensal.</div>
       </div>
-      ${eraZero && valorPac>0
-        ? `<div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="pk-pay">
-            ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setPacotePay('${v}')">${l}</button>`).join('')}
-          </div></div>`
-        : ''
-      }
       <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="concluirPacote('${id}')">✓ Concluir e marcar uso</button></div>
     `);
     return;
@@ -1315,7 +1302,6 @@ function modalConcluir(id){
   renderProdutosConcluir(); updConcluir();
 }
 function setConcluirPay(p){ concluirTmp.formaPagamento=p; document.querySelectorAll('#cc-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); updConcluir(); }
-function setPacotePay(p){ pacoteTmp.formaPagamento=p; document.querySelectorAll('#pk-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); }
 function setConcluirTip(v){
   const inp=document.getElementById('cc-gorjeta'); if(inp) inp.value=v||'';
   document.querySelectorAll('[data-tip]').forEach(b=>b.classList.toggle('on',parseFloat(b.dataset.tip)===v&&v>0));
@@ -1443,12 +1429,13 @@ function gastoCliente(nome){
 }
 function viewClientes(){
   const lista=state.clientes.filter(c=>c.nome.toLowerCase().includes(cliBusca.toLowerCase())||(c.telefone||'').includes(cliBusca)).slice().sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR',{sensitivity:'base'}));
+  if(cliTab==='insights') return viewClientesInsights();
   if(cliTab==='ranking'){
     const ranked=[...state.clientes].map(c=>({...c,gasto:gastoCliente(c.nome),ags:histCliente(c.nome).filter(a=>a.status==='concluido').length})).sort((a,b)=>b.gasto-a.gasto).filter(c=>c.gasto>0||c.ags>0);
     return `
       <div class="sec-head"><div><h1>Clientes</h1><p>${state.clientes.length} cliente(s) cadastrado(s)</p></div>
         <button class="btn btn-primary" onclick="modalCliente()">+ Novo</button></div>
-      <div class="tabs" style="margin-bottom:16px"><button class="tab" onclick="cliTab='lista';render()">Lista</button><button class="tab active" onclick="cliTab='ranking';render()">🏆 Ranking</button></div>
+      <div class="tabs" style="margin-bottom:16px"><button class="tab" onclick="cliTab='lista';render()">Lista</button><button class="tab active" onclick="cliTab='ranking';render()">🏆 Ranking</button><button class="tab" onclick="cliTab='insights';render()">📊 Resumo</button></div>
       ${ranked.length?ranked.map((c,i)=>{
         const medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
         return `<div class="card list-item" style="padding:14px;${i===0?'border-color:var(--gold)':''}">
@@ -1467,7 +1454,7 @@ function viewClientes(){
   return `
     <div class="sec-head"><div><h1>Clientes</h1><p>${state.clientes.length} cliente(s) cadastrado(s)</p></div>
       <button class="btn btn-primary" onclick="modalCliente()">+ Novo Cliente</button></div>
-    <div class="tabs" style="margin-bottom:16px"><button class="tab active" onclick="cliTab='lista';render()">Lista</button><button class="tab" onclick="cliTab='ranking';render()">🏆 Ranking</button></div>
+    <div class="tabs" style="margin-bottom:16px"><button class="tab active" onclick="cliTab='lista';render()">Lista</button><button class="tab" onclick="cliTab='ranking';render()">🏆 Ranking</button><button class="tab" onclick="cliTab='insights';render()">📊 Resumo</button></div>
     <div style="position:relative;margin-bottom:18px"><div style="position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none">${ICON.search(15,'#6B7280')}</div>
       <input id="cli-busca" class="inp" style="padding-left:34px" value="${esc(cliBusca)}" placeholder="Buscar por nome ou telefone..." oninput="cliBusca=this.value;render();const el=document.getElementById('cli-busca');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length);}"></div>
     ${lista.length?lista.map(c=>{const h=histCliente(c.nome);return `<div class="card list-item" style="padding:15px;opacity:${c.bloqueado?.65:1}">
@@ -1483,6 +1470,84 @@ function viewClientes(){
           <button class="btn btn-sm ${c.bloqueado?'btn-green':'btn-amber'}" onclick="togBloq('${c.id}')">${c.bloqueado?'Desbloquear':'Bloquear'}</button>
           <button class="btn btn-red btn-sm" onclick="delCliente('${c.id}')">Remover</button>`:''}
       </div></div>`}).join(''):`<div class="card empty">${ICON.users(36,'#252525')}<p>Nenhum cliente encontrado</p><button class="btn btn-primary" onclick="modalCliente()">Cadastrar Cliente</button></div>`}`;
+}
+function viewClientesInsights(){
+  const now=new Date();
+  const mesAtual=todayStr().slice(0,7);
+  const mesNum=String(now.getMonth()+1).padStart(2,'0');
+  const ms30=now.getTime()-30*86400000;
+  const d30=new Date(now); d30.setDate(now.getDate()-30); const iso30=toISO(d30);
+  const d21=new Date(now); d21.setDate(now.getDate()-21); const iso21=toISO(d21);
+  // visitas concluídas por cliente
+  const conc={};
+  state.agendamentos.filter(a=>a.status==='concluido').forEach(a=>{ (conc[a.clienteNome]=conc[a.clienteNome]||[]).push(a.data); });
+  const totalCad=state.clientes.length;
+  const bloqueados=state.clientes.filter(c=>c.bloqueado).length;
+  const novosMes=state.clientes.filter(c=>c.createdAt&&new Date(c.createdAt).toISOString().slice(0,7)===mesAtual).length;
+  const novos30=state.clientes.filter(c=>c.createdAt&&c.createdAt>=ms30).length;
+  const inativos=[], emRisco=[], nuncaAtend=[];
+  state.clientes.filter(c=>!c.bloqueado).forEach(c=>{
+    const v=conc[c.nome]?[...conc[c.nome]].sort():[];
+    if(!v.length){ nuncaAtend.push(c.nome); return; }
+    const ult=v[v.length-1];
+    const dias=Math.round((now-parseLocalDate(ult))/86400000);
+    if(ult<iso30) inativos.push({nome:c.nome,dias});
+    else if(ult>=iso30&&ult<=iso21) emRisco.push({nome:c.nome,dias});
+  });
+  inativos.sort((a,b)=>b.dias-a.dias);
+  emRisco.sort((a,b)=>b.dias-a.dias);
+  const ativosSet=new Set();
+  state.agendamentos.filter(a=>a.status==='concluido'&&(a.data||'').startsWith(mesAtual)).forEach(a=>ativosSet.add(a.clienteNome));
+  let novosAtivos=0, recorrentesAtivos=0;
+  ativosSet.forEach(nome=>{ const v=(conc[nome]||[]).slice().sort(); const primeira=v[0]; if(primeira&&primeira.startsWith(mesAtual)) novosAtivos++; else recorrentesAtivos++; });
+  const aniversariantes=state.clientes.filter(c=>c.dataNascimento&&c.dataNascimento.slice(5,7)===mesNum)
+    .map(c=>({nome:c.nome,dia:c.dataNascimento.slice(8,10)}))
+    .sort((a,b)=>a.dia.localeCompare(b.dia));
+  let gaps=[], comVisita=0, umaVisita=0, recorrentes=0;
+  state.clientes.forEach(c=>{
+    const v=[...new Set(conc[c.nome]||[])].sort();
+    if(v.length>=1) comVisita++;
+    if(v.length===1) umaVisita++;
+    if(v.length>=2){ recorrentes++; for(let i=1;i<v.length;i++){ const diff=(parseLocalDate(v[i])-parseLocalDate(v[i-1]))/86400000; if(diff>0) gaps.push(diff); } }
+  });
+  const freqMedia=gaps.length?Math.round(gaps.reduce((s,x)=>s+x,0)/gaps.length):0;
+  const taxaRetorno=comVisita?Math.round(recorrentes/comVisita*100):0;
+  const gastos=state.clientes.map(c=>gastoCliente(c.nome)).filter(g=>g>0);
+  const ticketMedioCli=gastos.length?gastos.reduce((s,x)=>s+x,0)/gastos.length:0;
+  const card=(label,val,cor,sub)=>`<div class="card" style="padding:14px;text-align:center"><div style="font-size:22px;font-weight:700;color:${cor}">${val}</div><div style="font-size:11px;color:var(--text-2);margin-top:3px;font-weight:600">${label}</div>${sub?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">${sub}</div>`:''}</div>`;
+  const row=(label,val,cor)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:7px"><span style="font-size:12px;color:var(--text-2)">${label}</span><span style="font-size:14px;font-weight:700;color:${cor||'var(--text)'}">${val}</span></div>`;
+  const chips=(arr)=>arr.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${arr.map(t=>`<span style="padding:5px 10px;background:var(--inner);border:1px solid var(--border);border-radius:14px;font-size:12px">${t}</span>`).join('')}</div>`:`<p style="font-size:12px;color:var(--text-3);text-align:center;padding:8px 0">Nenhum no momento</p>`;
+  const mesExt=now.toLocaleDateString('pt-BR',{month:'long'});
+  return `
+    <div class="sec-head"><div><h1>Clientes</h1><p>${totalCad} cliente(s) cadastrado(s)</p></div>
+      <button class="btn btn-primary" onclick="modalCliente()">+ Novo Cliente</button></div>
+    <div class="tabs" style="margin-bottom:16px"><button class="tab" onclick="cliTab='lista';render()">Lista</button><button class="tab" onclick="cliTab='ranking';render()">🏆 Ranking</button><button class="tab active" onclick="cliTab='insights';render()">📊 Resumo</button></div>
+    <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:10px">Visão geral</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+      ${card('Total cadastrados',totalCad,'var(--blue)',bloqueados?bloqueados+' bloqueado(s)':'')}
+      ${card('Novos no mês',novosMes,'var(--green)',novos30+' nos últimos 30 dias')}
+      ${card('Ativos no mês',ativosSet.size,'var(--gold)','apareceram em '+mesExt)}
+      ${card('Inativos +30 dias',inativos.length,'var(--red)','sem aparecer há +30d')}
+      ${card('Em risco (21–30d)',emRisco.length,'var(--amber)','prestes a sumir')}
+      ${card('Aniversariantes',aniversariantes.length,'#A78BFA','em '+mesExt)}
+    </div>
+    <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:10px">Comportamento</h3>
+    <div class="card" style="margin-bottom:18px">
+      ${row('Frequência média de retorno', freqMedia?('a cada '+freqMedia+' dias'):'—','var(--gold)')}
+      ${row('Taxa de retorno (voltaram 2+ vezes)', taxaRetorno+'%','var(--green)')}
+      ${row('Ticket médio por cliente', fmtMoney(ticketMedioCli),'var(--green)')}
+      ${row('Clientes recorrentes', recorrentes+' de '+comVisita)}
+      ${row('Vieram só uma vez', umaVisita)}
+      ${row('Novos x recorrentes no mês', novosAtivos+' novos · '+recorrentesAtivos+' recorrentes')}
+      ${nuncaAtend.length?row('Cadastrados sem nenhum atendimento', nuncaAtend.length,'var(--text-2)'):''}
+    </div>
+    <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#A78BFA;margin-bottom:10px">🎂 Aniversariantes de ${mesExt}</h3>
+    <div class="card" style="margin-bottom:18px">${chips(aniversariantes.map(a=>`${esc(a.nome)} · ${a.dia}/${mesNum}`))}</div>
+    <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin-bottom:10px">⚠️ Em risco (21 a 30 dias)</h3>
+    <div class="card" style="margin-bottom:18px">${chips(emRisco.map(c=>`${esc(c.nome)} · ${c.dias}d`))}</div>
+    <h3 style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--red);margin-bottom:10px">😴 Inativos (+30 dias)</h3>
+    <div class="card">${chips(inativos.map(c=>`${esc(c.nome)} · ${c.dias}d`))}</div>
+  `;
 }
 function togBloq(id){ state.clientes=state.clientes.map(c=>c.id===id?{...c,bloqueado:!c.bloqueado}:c); save('clientes'); render(); }
 function delCliente(id){ if(confirm('Remover cliente?')){ state.clientes=state.clientes.filter(c=>c.id!==id); save('clientes'); render(); } }
@@ -1704,21 +1769,13 @@ function viewBarbeiros(){
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
       const agsPag=ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
       const agsPac=ags.filter(a=>a.ePacote);
-      // Lançamentos de pacote com valor real (1º atendimento do ciclo) vinculados a este barbeiro
-      const lancPacoteValor=state.lancamentos.filter(l=>l.origem==='pacote'&&l.valor>0&&filtroAg({data:l.dataAgendamento||l.data})&&(()=>{const ag=state.agendamentos.find(a=>a.barbeiro===b&&a.ePacote&&a.status==='concluido'&&filtroAg(a));return agsPac.some(a=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);});})()).reduce((s,l)=>s+l.valor,0);
-      const receitaServAvulso=agsPag.reduce((s,a)=>{
+      const receita=agsPag.reduce((s,a)=>{
         const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
         const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
         const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
         const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
         return s+(baseServ-totalProd)+margemProd;
       },0);
-      // Valor dos pacotes: busca lançamentos origem='pacote' cujo agendamento pertence a este barbeiro no período
-      const receitaPacote=agsPac.reduce((s,a)=>{
-        const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
-        return s+(lancPac?lancPac.valor:0);
-      },0);
-      const receita=receitaServAvulso+receitaPacote;
       const pct=parseFloat(com[b])||0;
       // Gorjetas do barbeiro no período (100% dele, não entra no % de comissão)
       const gorjetas=state.lancamentos.filter(l=>l.origem==='gorjeta'&&l.barbeiro===b&&filtroAg({data:l.dataAgendamento||l.data})).reduce((s,l)=>s+l.valor,0);
@@ -1768,19 +1825,13 @@ function viewBarbeiros(){
   const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
   const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
   const agsPag = ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
-  const agsPacRel = ags.filter(a=>a.ePacote);
-  const receitaServAvulsoRel = agsPag.reduce((s,a)=>{
+  const receita = agsPag.reduce((s,a)=>{
     const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
     const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
     const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
     const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
     return s+(baseServ-totalProd)+margemProd;
   },0);
-  const receitaPacoteRel = agsPacRel.reduce((s,a)=>{
-    const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
-    return s+(lancPac?lancPac.valor:0);
-  },0);
-  const receita = receitaServAvulsoRel + receitaPacoteRel;
   const pct = parseFloat(com[b])||0;
   const comissao = receita*pct/100;
   const periodo = barbPeriodoLabel();
@@ -1796,38 +1847,17 @@ function viewBarbeiros(){
     agrupado[a.servico].qtd++;
     agrupado[a.servico].total+=base;
   });
-  // Inclui atendimentos de pacote com valor (1º do ciclo) no agrupado e detalhes
-  agsPacRel.forEach(a=>{
-    const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
-    if(!lancPac) return;
-    const label=`📦 ${esc(a.servico)} (pacote)`;
-    if(!agrupado[label]) agrupado[label]={qtd:0,total:0};
-    agrupado[label].qtd++;
-    agrupado[label].total+=lancPac.valor;
-  });
-  const linhasDetalhes = [...agsPag, ...agsPacRel.filter(a=>{
-    const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
-    return !!lancPac;
-  })]
+  const linhasDetalhes = agsPag
     .slice()
    .sort((a,x)=>`${a.data}${a.hora}`>`${x.data}${x.hora}`?1:-1)
     .map(a=>{
-      const isPac = !!a.ePacote;
-      let baseComissao;
-      let prodStr='';
-      if(isPac){
-        const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
-        baseComissao=lancPac?lancPac.valor:0;
-        prodStr=`<br><span style="font-size:11px;color:#b45309">📦 1º atendimento do ciclo — valor do pacote</span>`;
-      } else {
-        const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-        const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
-        const prods=lanc?(lanc.produtosComanda||[]):[];
-        const totalProd=prods.reduce((sp,p)=>sp+p.preco,0);
-        const margemProd=prods.reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0);
-        baseComissao=(baseServ-totalProd)+margemProd;
-        prodStr=prods.length?`<br><span style="font-size:11px;color:#6b7280">+ ${prods.map(p=>`${esc(p.nome)} (margem: ${fmtMoney(p.preco-(p.custo||0))})`).join(', ')}</span>`:'';
-      }
+      const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
+      const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
+      const prods=lanc?(lanc.produtosComanda||[]):[];
+      const totalProd=prods.reduce((sp,p)=>sp+p.preco,0);
+      const margemProd=prods.reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0);
+      const baseComissao=(baseServ-totalProd)+margemProd;
+      const prodStr=prods.length?`<br><span style="font-size:11px;color:#6b7280">+ ${prods.map(p=>`${esc(p.nome)} (margem: ${fmtMoney(p.preco-(p.custo||0))})`).join(', ')}</span>`:'';
       return `<tr>
         <td>${fmtDate(a.data)}</td>
         <td>${esc(a.hora||'—')}</td>
@@ -1886,7 +1916,7 @@ function viewBarbeiros(){
     <div style="text-align:right;font-size:11px;color:#9ca3af">Gerado em<br><strong>${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</strong></div>
   </div>
   <div class="cards">
-    <div class="c"><div class="lbl">Atendimentos</div><div class="val">${agsPag.length + agsPacRel.filter(a=>state.lancamentos.some(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})())).length}</div></div>
+    <div class="c"><div class="lbl">Atendimentos</div><div class="val">${agsPag.length}</div></div>
     <div class="c green"><div class="lbl">Receita Bruta</div><div class="val">${fmtMoney(receita)}</div></div>
     <div class="c amber"><div class="lbl">Comissão (${pct}%)</div><div class="val">${fmtMoney(comissao)}</div></div>
   </div>
@@ -1894,7 +1924,7 @@ function viewBarbeiros(){
   <table>
     <thead><tr><th>Serviço</th><th style="text-align:center">Qtd</th><th style="text-align:right">Total</th></tr></thead>
     <tbody>${linhasResumo}</tbody>
-    <tfoot><tr class="total-row"><td>Total</td><td style="text-align:center">${agsPag.length + agsPacRel.filter(a=>state.lancamentos.some(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})())).length}x</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
+    <tfoot><tr class="total-row"><td>Total</td><td style="text-align:center">${agsPag.length}x</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
   </table>
   <h2>Detalhes dos Atendimentos</h2>
   <table>
@@ -1947,15 +1977,13 @@ function concluirPacote(id){
     const nomePac = pac?.nome||'Pacote';
     const valorPac = pac?.valorTotal||0;
     if(eraZero && valorPac>0){
-      // 1º serviço do ciclo: lança entrada com valor e forma de pagamento escolhida
-      const fp = pacoteTmp.formaPagamento||'pix';
-      const liqPac = calcLiquido(valorPac, fp);
+      // 1º serviço do ciclo: lança entrada com valor
       state.lancamentos.push({
         id:uid(),tipo:'entrada',
         descricao:`Pacote: ${nomePac} — ${a.clienteNome} (1º atendimento do mês)`,
         categoria:'Serviço',
-        valor:valorPac,valorLiquido:liqPac,
-        formaPagamento:fp,
+        valor:valorPac,valorLiquido:valorPac,
+        formaPagamento:'pix',
         data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote'
       });
     } else {

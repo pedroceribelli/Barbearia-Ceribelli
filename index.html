@@ -1704,13 +1704,21 @@ function viewBarbeiros(){
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
       const agsPag=ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
       const agsPac=ags.filter(a=>a.ePacote);
-      const receita=agsPag.reduce((s,a)=>{
+      // Lançamentos de pacote com valor real (1º atendimento do ciclo) vinculados a este barbeiro
+      const lancPacoteValor=state.lancamentos.filter(l=>l.origem==='pacote'&&l.valor>0&&filtroAg({data:l.dataAgendamento||l.data})&&(()=>{const ag=state.agendamentos.find(a=>a.barbeiro===b&&a.ePacote&&a.status==='concluido'&&filtroAg(a));return agsPac.some(a=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);});})()).reduce((s,l)=>s+l.valor,0);
+      const receitaServAvulso=agsPag.reduce((s,a)=>{
         const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
         const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
         const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
         const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
         return s+(baseServ-totalProd)+margemProd;
       },0);
+      // Valor dos pacotes: busca lançamentos origem='pacote' cujo agendamento pertence a este barbeiro no período
+      const receitaPacote=agsPac.reduce((s,a)=>{
+        const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
+        return s+(lancPac?lancPac.valor:0);
+      },0);
+      const receita=receitaServAvulso+receitaPacote;
       const pct=parseFloat(com[b])||0;
       // Gorjetas do barbeiro no período (100% dele, não entra no % de comissão)
       const gorjetas=state.lancamentos.filter(l=>l.origem==='gorjeta'&&l.barbeiro===b&&filtroAg({data:l.dataAgendamento||l.data})).reduce((s,l)=>s+l.valor,0);
@@ -1760,13 +1768,19 @@ function viewBarbeiros(){
   const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
   const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
   const agsPag = ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
-  const receita = agsPag.reduce((s,a)=>{
+  const agsPacRel = ags.filter(a=>a.ePacote);
+  const receitaServAvulsoRel = agsPag.reduce((s,a)=>{
     const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
     const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
     const totalProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+p.preco,0):0;
     const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
     return s+(baseServ-totalProd)+margemProd;
   },0);
+  const receitaPacoteRel = agsPacRel.reduce((s,a)=>{
+    const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
+    return s+(lancPac?lancPac.valor:0);
+  },0);
+  const receita = receitaServAvulsoRel + receitaPacoteRel;
   const pct = parseFloat(com[b])||0;
   const comissao = receita*pct/100;
   const periodo = barbPeriodoLabel();
@@ -1782,17 +1796,38 @@ function viewBarbeiros(){
     agrupado[a.servico].qtd++;
     agrupado[a.servico].total+=base;
   });
-  const linhasDetalhes = agsPag
+  // Inclui atendimentos de pacote com valor (1º do ciclo) no agrupado e detalhes
+  agsPacRel.forEach(a=>{
+    const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
+    if(!lancPac) return;
+    const label=`📦 ${esc(a.servico)} (pacote)`;
+    if(!agrupado[label]) agrupado[label]={qtd:0,total:0};
+    agrupado[label].qtd++;
+    agrupado[label].total+=lancPac.valor;
+  });
+  const linhasDetalhes = [...agsPag, ...agsPacRel.filter(a=>{
+    const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
+    return !!lancPac;
+  })]
     .slice()
    .sort((a,x)=>`${a.data}${a.hora}`>`${x.data}${x.hora}`?1:-1)
     .map(a=>{
-      const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
-      const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
-      const prods=lanc?(lanc.produtosComanda||[]):[];
-      const totalProd=prods.reduce((sp,p)=>sp+p.preco,0);
-      const margemProd=prods.reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0);
-      const baseComissao=(baseServ-totalProd)+margemProd;
-      const prodStr=prods.length?`<br><span style="font-size:11px;color:#6b7280">+ ${prods.map(p=>`${esc(p.nome)} (margem: ${fmtMoney(p.preco-(p.custo||0))})`).join(', ')}</span>`:'';
+      const isPac = !!a.ePacote;
+      let baseComissao;
+      let prodStr='';
+      if(isPac){
+        const lancPac=state.lancamentos.find(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})());
+        baseComissao=lancPac?lancPac.valor:0;
+        prodStr=`<br><span style="font-size:11px;color:#b45309">📦 1º atendimento do ciclo — valor do pacote</span>`;
+      } else {
+        const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
+        const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
+        const prods=lanc?(lanc.produtosComanda||[]):[];
+        const totalProd=prods.reduce((sp,p)=>sp+p.preco,0);
+        const margemProd=prods.reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0);
+        baseComissao=(baseServ-totalProd)+margemProd;
+        prodStr=prods.length?`<br><span style="font-size:11px;color:#6b7280">+ ${prods.map(p=>`${esc(p.nome)} (margem: ${fmtMoney(p.preco-(p.custo||0))})`).join(', ')}</span>`:'';
+      }
       return `<tr>
         <td>${fmtDate(a.data)}</td>
         <td>${esc(a.hora||'—')}</td>
@@ -1851,7 +1886,7 @@ function viewBarbeiros(){
     <div style="text-align:right;font-size:11px;color:#9ca3af">Gerado em<br><strong>${new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}</strong></div>
   </div>
   <div class="cards">
-    <div class="c"><div class="lbl">Atendimentos</div><div class="val">${agsPag.length}</div></div>
+    <div class="c"><div class="lbl">Atendimentos</div><div class="val">${agsPag.length + agsPacRel.filter(a=>state.lancamentos.some(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})())).length}</div></div>
     <div class="c green"><div class="lbl">Receita Bruta</div><div class="val">${fmtMoney(receita)}</div></div>
     <div class="c amber"><div class="lbl">Comissão (${pct}%)</div><div class="val">${fmtMoney(comissao)}</div></div>
   </div>
@@ -1859,7 +1894,7 @@ function viewBarbeiros(){
   <table>
     <thead><tr><th>Serviço</th><th style="text-align:center">Qtd</th><th style="text-align:right">Total</th></tr></thead>
     <tbody>${linhasResumo}</tbody>
-    <tfoot><tr class="total-row"><td>Total</td><td style="text-align:center">${agsPag.length}x</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
+    <tfoot><tr class="total-row"><td>Total</td><td style="text-align:center">${agsPag.length + agsPacRel.filter(a=>state.lancamentos.some(l=>l.origem==='pacote'&&l.valor>0&&l.dataAgendamento===a.data&&(()=>{const pk=state.pacotes.find(p=>p.id===a.pacoteId);return pk&&l.descricao&&l.descricao.includes(pk.nome)&&l.descricao.includes(a.clienteNome);})())).length}x</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
   </table>
   <h2>Detalhes dos Atendimentos</h2>
   <table>

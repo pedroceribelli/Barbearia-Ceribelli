@@ -710,6 +710,16 @@ function atualizarBadgeLembretes(){
 }
 
 /* ============ DASHBOARD ============ */
+/* Agendamentos que já passaram +1h do horário e seguem como "agendado" — precisam de desfecho */
+function agendamentosPendentesConclusao(){
+  const agora=Date.now();
+  return state.agendamentos.filter(a=>{
+    if(a.status!=='agendado') return false;
+    const dt=new Date(a.data+'T'+(a.hora||'00:00'));
+    if(isNaN(dt)) return false;
+    return agora >= dt.getTime()+3600000; // passou 1h do horário
+  }).sort((a,b)=>`${a.data}${a.hora}`>`${b.data}${b.hora}`?1:-1);
+}
 function viewDashboard(){
   const t=todayStr();
   const mesAtual=t.slice(0,7);
@@ -746,6 +756,21 @@ function viewDashboard(){
     </div>
     ${baixo.length?`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--amber)">${ICON.warning(15,'#F59E0B')}<span><strong>${baixo.length} produto(s) com estoque baixo:</strong> ${baixo.map(p=>esc(p.nome)).join(', ')}</span></div>`:''}
     ${(()=>{ const pend=lembretesPendentes(); const notifs=(state.notifAlteracao||[]).filter(x=>!x.enviado); const total=pend.length+notifs.length; return total?`<div onclick="setView('lembretes')" style="cursor:pointer;padding:10px 14px;background:var(--green-bg);border:1px solid #22C55E40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--green)">${ICON.clock(15,'#22C55E')}<span><strong>${total} lembrete(s) para enviar</strong> — toque para abrir</span></div>`:''; })()}
+    ${(()=>{ const pend=agendamentosPendentesConclusao(); return pend.length?`<div class="card" style="margin-bottom:12px;border:1px solid var(--amber)">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">${ICON.warning(15,'#F59E0B')}<span style="font-size:13px;font-weight:700;color:var(--amber)">${pend.length} atendimento(s) aguardando desfecho</span></div>
+      <p style="font-size:11px;color:var(--text-3);margin-bottom:12px">Passou +1h do horário e ainda estão como "agendado". Defina o desfecho pra não perder o lançamento.</p>
+      ${pend.map(a=>`<div style="padding:10px 12px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div><div style="font-weight:600;font-size:13px">${esc(a.clienteNome)}</div><div style="font-size:11px;color:var(--text-2);margin-top:1px">${esc(a.servico)}${a.barbeiro?' · '+esc(a.barbeiro):''}</div></div>
+          <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">${esc(a.hora)}</div><div style="font-size:10px;color:var(--text-3)">${fmtDate(a.data)}</div></div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-green btn-sm" onclick="modalConcluir('${a.id}')">✓ Concluir</button>
+          <button class="btn btn-amber btn-sm" onclick="setStatusAg('${a.id}','cancelado')">✕ Cancelar</button>
+          <button class="btn btn-sm" onclick="modalAgenda('${a.id}')">Editar</button>
+        </div>
+      </div>`).join('')}
+    </div>`:''; })()}
     ${inativos.length?`<div onclick="setView('clientes')" style="cursor:pointer;padding:10px 14px;background:var(--blue-bg);border:1px solid #60A5FA40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--blue)">${ICON.users(15,'#60A5FA')}<span><strong>${inativos.length} cliente(s) sem aparecer há +30 dias</strong> — toque para ver</span></div>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
       ${stats.map(s=>`<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px">

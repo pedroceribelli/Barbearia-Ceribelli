@@ -331,7 +331,7 @@ async function cloudLoad(){
 const uid = () => Math.random().toString(36).slice(2,10);
 const fmtMoney = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; };
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const calcLiquido = (v,fp) => fp==='debito'?v*(1-state.config.taxaDebito/100):fp==='credito'?v*(1-state.config.taxaCredito/100):v;
 const fmtPayment = fp => ({pix:'Pix',dinheiro:'Dinheiro',debito:`Débito (−${state.config.taxaDebito}%)`,credito:`Crédito (−${state.config.taxaCredito}%)`}[fp]||fp);
@@ -1508,7 +1508,7 @@ function viewClientesInsights(){
   state.agendamentos.filter(a=>a.status==='concluido').forEach(a=>{ (conc[a.clienteNome]=conc[a.clienteNome]||[]).push(a.data); });
   const totalCad=state.clientes.length;
   const bloqueados=state.clientes.filter(c=>c.bloqueado).length;
-  const novosMes=state.clientes.filter(c=>c.createdAt&&new Date(c.createdAt).toISOString().slice(0,7)===mesAtual).length;
+  const novosMes=state.clientes.filter(c=>{ if(!c.createdAt) return false; const d=new Date(c.createdAt); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===mesAtual; }).length;
   const novos30=state.clientes.filter(c=>c.createdAt&&c.createdAt>=ms30).length;
   const inativos=[], emRisco=[], nuncaAtend=[];
   state.clientes.filter(c=>!c.bloqueado).forEach(c=>{

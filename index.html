@@ -423,6 +423,16 @@ function migrarDados(){
 function svg(paths,size=20,color='currentColor'){
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 }
+/* ===== Logo da marca (substitui a tesoura nos espaços de identidade) ===== */
+const LOGO_URL = 'logoap.jpg';
+// Logo inline (ao lado de texto). Se a imagem falhar, cai pra tesoura.
+function logoMark(size, color){
+  return `<img src="${LOGO_URL}" alt="Logo" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover;display:block;flex-shrink:0" onerror="this.outerHTML=ICON.scissors(${size},'${color||'#C9A84C'}')">`;
+}
+// Logo preenchendo um container circular (side-logo, login, pin).
+function logoFill(color){
+  return `<img src="${LOGO_URL}" alt="Logo" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;display:block" onerror="this.parentElement.innerHTML=ICON.scissors(Math.round(this.parentElement.clientWidth*0.55)||20,'${color||'#0A0A0A'}')">`;
+}
 const ICON = {
   home:(p,c)=>svg('<path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-5H9v5H4a1 1 0 01-1-1V9.5z"/>',p,c),
   calendar:(p,c)=>svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',p,c),
@@ -572,7 +582,7 @@ function pinRequired(){ return !!(state.config.pinHash)&&!sessionValida(); }
 function lockApp(){ LS.set('bc:session',null); _pinAtual=''; _pinErro=''; render(); }
 function viewPin(){
   return `<div style="text-align:center;width:100%;max-width:320px">
-    <div class="side-logo" style="margin:0 auto 16px;width:60px;height:60px">${ICON.scissors(24,'#0A0A0A')}</div>
+    <div class="side-logo" style="margin:0 auto 16px;width:60px;height:60px">${logoFill('#0A0A0A')}</div>
     <h1 style="font-size:20px;font-weight:700;margin-bottom:4px">${esc(state.config.barbearia?.nome||'Barbearia')}</h1>
     <p style="font-size:13px;color:var(--text-3);margin-bottom:28px">Digite seu PIN para entrar</p>
     <div style="display:flex;gap:16px;justify-content:center;margin-bottom:${_pinErro?'14px':'28px'}">
@@ -751,7 +761,7 @@ function viewDashboard(){
   const nomeBarbearia = state.config.barbearia?.nome || 'Barbearia Ceribelli';
   return `
     <div style="margin-bottom:18px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${ICON.scissors(18,'#C9A84C')}<h1 style="font-size:19px;font-weight:700">${esc(nomeBarbearia)}</h1></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${logoMark(24,'#C9A84C')}<h1 style="font-size:19px;font-weight:700">${esc(nomeBarbearia)}</h1></div>
       <p style="color:var(--text-2);font-size:12px">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
@@ -2920,11 +2930,11 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 
 /* ============ ÍCONES DO TEMPLATE ============ */
 (function injectIcons(){
-  const s=document.querySelector('#sidebar .side-head .side-logo'); if(s)s.innerHTML=ICON.scissors(16,'#0A0A0A');
+  const s=document.querySelector('#sidebar .side-head .side-logo'); if(s)s.innerHTML=logoFill('#0A0A0A');
   const sx=document.querySelector('#sidebar .side-head button'); if(sx)sx.innerHTML=ICON.x(20);
-  const sd=document.querySelector('.side-logo.only-desktop'); if(sd)sd.innerHTML=ICON.scissors(17,'#0A0A0A');
+  const sd=document.querySelector('.side-logo.only-desktop'); if(sd)sd.innerHTML=logoFill('#0A0A0A');
   const bur=document.querySelector('#topbar .burger'); if(bur)bur.innerHTML=ICON.menu(20,'#C9A84C');
-  const brand=document.querySelector('#topbar-brand'); if(brand&&!brand.querySelector('svg'))brand.insertAdjacentHTML('afterbegin',ICON.scissors(16,'#C9A84C'));
+  const brand=document.querySelector('#topbar-brand'); if(brand&&!brand.querySelector('img,svg'))brand.insertAdjacentHTML('afterbegin',logoMark(22,'#C9A84C'));
   const tema=document.querySelector('#btn-tema'); if(tema) tema.innerHTML=temaClaro?ICON.moon(20,'#C9A84C'):ICON.sun(20,'#C9A84C');
   const sino=document.querySelector('#btn-sino'); if(sino&&!sino.querySelector('svg'))sino.insertAdjacentHTML('afterbegin',ICON.bell(20,'#C9A84C'));
   const novo=document.querySelector('#btn-novo'); if(novo)novo.innerHTML=ICON.plus(20,'#C9A84C');
@@ -2935,7 +2945,7 @@ function mostrarTelaLogin(erro){
     <div style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px">
       <div style="width:100%;max-width:360px">
         <div style="text-align:center;margin-bottom:32px">
-          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;margin:0 auto 14px">${ICON.scissors(28,'#0A0A0A')}</div>
+          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;margin:0 auto 14px">${logoFill('#0A0A0A')}</div>
           <h1 style="font-size:22px;font-weight:700">${esc(state.config?.barbearia?.nome||'Barbearia Ceribelli')}</h1>
           <p style="font-size:13px;color:var(--text-3);margin-top:4px">Faça login para continuar</p>
         </div>
@@ -3584,7 +3594,7 @@ function renderModoOp(){
   ov.innerHTML=
     // Topbar
     '<div style="position:absolute;top:0;left:0;right:0;padding:env(safe-area-inset-top,0) 16px 0;height:calc(52px + env(safe-area-inset-top,0px));background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:10px">'
-      +'<div style="display:flex;align-items:center;gap:6px">'+ICON.scissors(16,'#C9A84C')+'<span style="font-size:13px;font-weight:700;color:var(--gold)">'+esc(barbearia)+'</span></div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'+logoMark(20,'#C9A84C')+'<span style="font-size:13px;font-weight:700;color:var(--gold)">'+esc(barbearia)+'</span></div>'
       +'<button onclick="toggleModoOp()" style="background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:5px 14px;color:var(--red);cursor:pointer;font-size:12px;font-weight:700">✕ Sair</button>'
     +'</div>'
     // Conteúdo central

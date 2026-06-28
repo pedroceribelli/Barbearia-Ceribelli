@@ -1834,9 +1834,9 @@ function viewBarbeiros(){
       <button class="btn btn-sm" onclick="barbFiltro='${barbNavDate(1)}';render()">›</button>
     </div>`}
     ${barbs.length?barbs.map(b=>{
-      const ultimoPagto = (state.config.comissoesPagas||{})[b] || 0;
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-      const agsPag=ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
+      // Período manda: conta tudo do período selecionado (pago ou não). Sem memória de "já pago".
+      const agsPag=ags.filter(a=>!a.ePacote);
       const agsPac=ags.filter(a=>a.ePacote);
       const receita=agsPag.reduce((s,a)=>{
         const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
@@ -1891,9 +1891,8 @@ function viewBarbeiros(){
     if(barbModo==='semana') return dias.includes(a.data);
     return (a.data||'').startsWith(barbFiltro.slice(0,7));
   };
-  const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
   const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-  const agsPag = ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
+  const agsPag = ags.filter(a=>!a.ePacote);
   const receita = agsPag.reduce((s,a)=>{
     const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
     const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
@@ -2072,7 +2071,7 @@ function concluirPacote(id){
   if(_modoOpAtivo){ const ov=document.getElementById('modo-op-overlay'); if(ov) ov.style.display='flex'; setTimeout(renderModoOp,100); }
 }
 function pagarComissao(barbeiro, valor){
-  if(!confirm(`Confirmar pagamento de comissão de ${fmtMoney(valor)} para ${barbeiro}?\n\nIsso lançará uma SAÍDA no financeiro e zerará a contagem.`)) return;
+  if(!confirm(`Confirmar pagamento de comissão de ${fmtMoney(valor)} para ${barbeiro}?\n\nIsso lançará uma SAÍDA no financeiro referente ao período selecionado.`)) return;
   const periodo = barbPeriodoLabel();
   state.lancamentos.push({
     id:uid(),
@@ -2085,17 +2084,9 @@ function pagarComissao(barbeiro, valor){
     createdAt:Date.now(),
     origem:'comissao'
   });
-  // salva o marco do pagamento para zerar o ciclo.
-  // Usa o FIM do dia de hoje (23:59:59) em vez do instante exato: assim os
-  // atendimentos de hoje — que estão sendo pagos agora — também saem da contagem.
-  // Com Date.now() (ex: 21:48) os atendimentos de hoje (datados 23:59) ficavam
-  // "depois" do pagamento e continuavam aparecendo como se não tivessem sido pagos.
-  if(!state.config.comissoesPagas) state.config.comissoesPagas={};
-  state.config.comissoesPagas[barbeiro] = new Date(todayStr()+'T23:59:59').getTime();
   save('lancamentos');
-  saveConfig();
   render();
-  alert(`✅ Comissão de ${fmtMoney(valor)} paga para ${barbeiro}!\nContagem zerada.`);
+  alert(`✅ Comissão de ${fmtMoney(valor)} paga para ${barbeiro}!\nLançada como saída no financeiro.`);
 }
 function viewPacotes(){
   const ativos=state.pacotes.filter(p=>p.ativo!==false);
@@ -3629,4 +3620,4 @@ function renderModoOp(){
 setTimeout(()=>{ const btn=document.getElementById('btn-modo-op'); if(btn) btn.innerHTML=ICON.scissors(18,'#C9A84C'); },150);
 </script>
 </body>
-</html> 
+</html>

@@ -2085,9 +2085,13 @@ function pagarComissao(barbeiro, valor){
     createdAt:Date.now(),
     origem:'comissao'
   });
-  // salva o timestamp do pagamento para zerar o ciclo
+  // salva o marco do pagamento para zerar o ciclo.
+  // Usa o FIM do dia de hoje (23:59:59) em vez do instante exato: assim os
+  // atendimentos de hoje — que estão sendo pagos agora — também saem da contagem.
+  // Com Date.now() (ex: 21:48) os atendimentos de hoje (datados 23:59) ficavam
+  // "depois" do pagamento e continuavam aparecendo como se não tivessem sido pagos.
   if(!state.config.comissoesPagas) state.config.comissoesPagas={};
-  state.config.comissoesPagas[barbeiro] = Date.now();
+  state.config.comissoesPagas[barbeiro] = new Date(todayStr()+'T23:59:59').getTime();
   save('lancamentos');
   saveConfig();
   render();

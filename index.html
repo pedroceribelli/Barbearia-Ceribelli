@@ -160,6 +160,7 @@
     }
     #sidebar.open{transform:translateX(0)}
     .side-logo{margin-bottom:0}
+    .side-logo.only-desktop{display:none}
     .side-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
     .side-head .brand{display:flex;align-items:center;gap:10px}
     .side-head .brand span{font-weight:700;font-size:14px}
@@ -423,6 +424,16 @@ function migrarDados(){
 function svg(paths,size=20,color='currentColor'){
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
 }
+/* ===== Logo da marca (substitui a tesoura nos espaços de identidade) ===== */
+const LOGO_URL = 'logoap.jpg';
+// Logo inline (ao lado de texto). Se a imagem falhar, cai pra tesoura.
+function logoMark(size, color){
+  return `<img src="${LOGO_URL}" alt="Logo" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover;display:block;flex-shrink:0" onerror="this.outerHTML=ICON.scissors(${size},'${color||'#C9A84C'}')">`;
+}
+// Logo preenchendo um container circular (side-logo, login, pin).
+function logoFill(color){
+  return `<img src="${LOGO_URL}" alt="Logo" style="width:100%;height:100%;border-radius:inherit;object-fit:cover;display:block" onerror="this.parentElement.innerHTML=ICON.scissors(Math.round(this.parentElement.clientWidth*0.55)||20,'${color||'#0A0A0A'}')">`;
+}
 const ICON = {
   home:(p,c)=>svg('<path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-5H9v5H4a1 1 0 01-1-1V9.5z"/>',p,c),
   calendar:(p,c)=>svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',p,c),
@@ -684,7 +695,7 @@ function pinRequired(){ return !!(state.config.pinHash)&&!sessionValida(); }
 function lockApp(){ LS.set('bc:session',null); _pinAtual=''; _pinErro=''; render(); }
 function viewPin(){
   return `<div style="text-align:center;width:100%;max-width:320px">
-    <div class="side-logo" style="margin:0 auto 16px;width:60px;height:60px">${ICON.scissors(24,'#0A0A0A')}</div>
+    <div class="side-logo" style="margin:0 auto 16px;width:60px;height:60px">${logoFill('#0A0A0A')}</div>
     <h1 style="font-size:20px;font-weight:700;margin-bottom:4px">${esc(state.config.barbearia?.nome||'Barbearia')}</h1>
     <p style="font-size:13px;color:var(--text-3);margin-bottom:28px">Digite seu PIN para entrar</p>
     <div style="display:flex;gap:16px;justify-content:center;margin-bottom:${_pinErro?'14px':'28px'}">
@@ -759,12 +770,12 @@ function closeDrawer(){ document.getElementById('sidebar').classList.remove('ope
 const NAV = [
   {id:'dashboard',ic:'home',l:'Início'},
   {id:'agenda',ic:'calendar',l:'Agenda'},
-  {id:'lembretes',ic:'clock',l:'Lembretes'},
-  {id:'clientes',ic:'users',l:'Clientes'},
   {id:'financeiro',ic:'dollar',l:'Financeiro'},
-  {id:'produtos',ic:'package',l:'Produtos'},
   {id:'barbeiros',ic:'cut',l:'Barbeiros'},
+  {id:'clientes',ic:'users',l:'Clientes'},
   {id:'pacotes',ic:'tag',l:'Pacotes'},
+  {id:'lembretes',ic:'clock',l:'Lembretes'},
+  {id:'produtos',ic:'package',l:'Produtos'},
   {id:'configuracoes',ic:'settings',l:'Config.'},
 ];
 function setView(v){
@@ -853,20 +864,26 @@ function viewDashboard(){
     return !ult || ult.data < limiteISO;
   });
   const stats=[
-    {l:'Receita Hoje',v:fmtMoney(receita),ic:'up',c:'var(--green)',bg:'var(--green-bg)'},
-    {l:'Despesas Hoje',v:fmtMoney(despesas),ic:'down',c:'var(--red)',bg:'var(--red-bg)'},
-    {l:'Agend. Hoje',v:aHoje.length,ic:'calendar',c:'var(--gold)',bg:'rgba(201,168,76,.08)'},
-    {l:'Clientes',v:state.clientes.length,ic:'users',c:'var(--blue)',bg:'var(--blue-bg)'},
+    {l:'Receita Hoje',v:fmtMoney(receita),ic:'up',c:'var(--green)',bg:'var(--green-bg)',nav:'financeiro'},
+    {l:'Despesas Hoje',v:fmtMoney(despesas),ic:'down',c:'var(--red)',bg:'var(--red-bg)',nav:'financeiro'},
+    {l:'Agend. Hoje',v:aHoje.length,ic:'calendar',c:'var(--gold)',bg:'rgba(201,168,76,.08)',nav:'agenda'},
+    {l:'Clientes',v:state.clientes.length,ic:'users',c:'var(--blue)',bg:'var(--blue-bg)',nav:'clientes'},
   ];
   const aConcluidosHoje=state.agendamentos.filter(a=>a.data===t&&a.status==='concluido');
   const ticketMedio=aConcluidosHoje.length>0?(receita/aConcluidosHoje.length):0;
   const nomeBarbearia = state.config.barbearia?.nome || 'Barbearia Ceribelli';
   return `
     <div style="margin-bottom:18px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${ICON.scissors(18,'#C9A84C')}<h1 style="font-size:19px;font-weight:700">${esc(nomeBarbearia)}</h1></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">${logoMark(24,'#C9A84C')}<h1 style="font-size:19px;font-weight:700">${esc(nomeBarbearia)}</h1></div>
       <p style="color:var(--text-2);font-size:12px">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
     </div>
-    ${baixo.length?`<div style="padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--amber)">${ICON.warning(15,'#F59E0B')}<span><strong>${baixo.length} produto(s) com estoque baixo:</strong> ${baixo.map(p=>esc(p.nome)).join(', ')}</span></div>`:''}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      ${[['financeiro','dollar','Financeiro'],['agenda','calendar','Agenda'],['barbeiros','cut','Barbeiros']].map(([id,ic,l])=>`<button onclick="setView('${id}')" style="display:flex;flex-direction:column;align-items:center;gap:7px;padding:14px 8px;background:var(--card);border:1px solid var(--border);border-radius:12px;color:var(--text)">
+        <div style="width:38px;height:38px;border-radius:10px;background:rgba(201,168,76,.1);display:flex;align-items:center;justify-content:center">${ICON[ic](18,'#C9A84C')}</div>
+        <span style="font-size:11px;font-weight:600">${l}</span>
+      </button>`).join('')}
+    </div>
+    ${baixo.length?`<div onclick="setView('produtos')" style="cursor:pointer;padding:10px 14px;background:var(--amber-bg);border:1px solid #F59E0B40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--amber)"><span style="display:flex;align-items:center;gap:8px">${ICON.warning(15,'#F59E0B')}<span><strong>${baixo.length} produto(s) com estoque baixo:</strong> ${baixo.map(p=>esc(p.nome)).join(', ')}</span></span><span style="font-size:14px;opacity:.7;flex-shrink:0">›</span></div>`:''}
     ${(()=>{ const pend=lembretesPendentes(); const notifs=(state.notifAlteracao||[]).filter(x=>!x.enviado); const total=pend.length+notifs.length; return total?`<div onclick="setView('lembretes')" style="cursor:pointer;padding:10px 14px;background:var(--green-bg);border:1px solid #22C55E40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--green)">${ICON.clock(15,'#22C55E')}<span><strong>${total} lembrete(s) para enviar</strong> — toque para abrir</span></div>`:''; })()}
     ${(()=>{ const pend=agendamentosPendentesConclusao(); return pend.length?`<div class="card" style="margin-bottom:12px;border:1px solid var(--amber)">
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">${ICON.warning(15,'#F59E0B')}<span style="font-size:13px;font-weight:700;color:var(--amber)">${pend.length} atendimento(s) aguardando desfecho</span></div>
@@ -885,11 +902,11 @@ function viewDashboard(){
     </div>`:''; })()}
     ${inativos.length?`<div onclick="setView('clientes')" style="cursor:pointer;padding:10px 14px;background:var(--blue-bg);border:1px solid #60A5FA40;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--blue)">${ICON.users(15,'#60A5FA')}<span><strong>${inativos.length} cliente(s) sem aparecer há +30 dias</strong> — toque para ver</span></div>`:''}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-      ${stats.map(s=>`<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px">
+      ${stats.map(s=>`<div class="card" ${s.nav?`onclick="setView('${s.nav}')" `:''}style="display:flex;align-items:center;gap:12px;padding:14px${s.nav?';cursor:pointer':''}">
         <div style="width:38px;height:38px;border-radius:10px;background:${s.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">${ICON[s.ic](17,s.c)}</div>
         <div><div style="font-size:16px;font-weight:700;color:${s.c}">${s.v}</div><div style="font-size:10px;color:var(--text-3);margin-top:1px">${s.l}</div></div>
       </div>`).join('')}
-      <div class="card" style="display:flex;align-items:center;gap:12px;padding:14px;grid-column:1/-1">
+      <div class="card" onclick="setView('financeiro')" style="display:flex;align-items:center;gap:12px;padding:14px;grid-column:1/-1;cursor:pointer">
         <div style="width:38px;height:38px;border-radius:10px;background:rgba(139,92,246,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">${ICON.award(17,'#A78BFA')}</div>
         <div><div style="font-size:16px;font-weight:700;color:#A78BFA">${fmtMoney(ticketMedio)}</div><div style="font-size:10px;color:var(--text-3);margin-top:1px">Ticket médio hoje${aConcluidosHoje.length?` (${aConcluidosHoje.length} atend.)`:' — sem concluídos'}</div></div>
       </div>
@@ -905,8 +922,11 @@ function viewDashboard(){
       <div style="font-size:10px;color:var(--text-3);margin-top:5px">${pct}% atingido${pct>=100?' 🎉 Meta batida!':' — faltam '+fmtMoney(meta-receitaMes)}</div>
     </div>`:''}
     <div class="card" style="margin-bottom:16px">
-      <h3 style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:14px">${ICON.calendar(15,'#C9A84C')} Próximos Agendamentos</h3>
-      ${prox.length?prox.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
+      <div onclick="setView('agenda')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px">
+        <h3 style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px">${ICON.calendar(15,'#C9A84C')} Próximos Agendamentos</h3>
+        <span style="font-size:11px;color:var(--gold);font-weight:600;white-space:nowrap;flex-shrink:0">Ver agenda ›</span>
+      </div>
+      ${prox.length?prox.map(a=>`<div onclick="setView('agenda')" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
         <div><div style="font-weight:600;font-size:13px;color:${ST_COLOR[a.status]}">${esc(a.clienteNome)}</div><div style="font-size:11px;color:var(--text-2);margin-top:1px">${esc(a.servico)}${a.barbeiro?' · '+esc(a.barbeiro):''}</div></div>
         <div style="text-align:right"><div style="font-size:13px;font-weight:700;color:var(--gold)">${esc(a.hora)}</div><div style="font-size:10px;color:var(--text-3)">${fmtDate(a.data)}</div></div>
       </div>`).join(''):'<p style="color:var(--text-3);font-size:13px;text-align:center;padding:12px 0">Nenhum agendamento próximo</p>'}
@@ -1872,6 +1892,30 @@ function barbPeriodoLabel(){
   if(barbModo==='semana'){ const w=weekDays(barbFiltro); return `${fmtDate(w[0])} – ${fmtDate(w[6])}`; }
   return new Date(barbFiltro+'-01T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 }
+function barbFiltroAg(a){
+  if(barbModo==='periodo') return (a.data||'')>=barbFiltroInicio&&(a.data||'')<=barbFiltroFim;
+  if(barbModo==='dia') return a.data===barbFiltro;
+  if(barbModo==='semana') return weekDays(barbFiltro).includes(a.data);
+  return (a.data||'').startsWith(barbFiltro.slice(0,7));
+}
+function modalAtendimentosPacote(b){
+  const agsPac=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&a.ePacote&&barbFiltroAg(a));
+  const byServico={};
+  agsPac.forEach(a=>{ byServico[a.servico]=(byServico[a.servico]||0)+1; });
+  const ordenados=[...agsPac].sort((x,y)=>(x.data||'').localeCompare(y.data||''));
+  openModal(`
+    <div class="modal-head"><h2>Atendimentos de pacote — ${esc(b)}</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="font-size:12px;color:var(--text-2);margin-bottom:12px">${barbPeriodoLabel()} · ${agsPac.length} atendimento(s) inclusos em pacote — não geram lançamento financeiro individual, pois o pagamento já está no pacote mensal do cliente.</div>
+    ${Object.keys(byServico).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">${Object.entries(byServico).map(([s,n])=>`<span style="padding:3px 10px;background:var(--inner);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text-2)">${esc(s)}: <strong>${n}x</strong></span>`).join('')}</div>`:''}
+    ${ordenados.length?ordenados.map(a=>{
+      const pk=state.pacotes.find(p=>p.id===a.pacoteId);
+      return `<div style="padding:10px 13px;background:var(--inner);border-radius:8px;border:1px solid var(--border);margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;gap:8px"><span style="font-weight:600;font-size:13px">${esc(a.servico)}</span><span style="font-size:12px;color:var(--gold)">${fmtDate(a.data)}${a.hora?' '+esc(a.hora):''}</span></div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:3px">${esc(a.clienteNome||'—')}${pk?` · 📦 ${esc(pk.nome||'Pacote')}`:''}</div>
+      </div>`;
+    }).join(''):'<p style="color:var(--text-3);text-align:center;padding:16px 0">Nenhum atendimento de pacote neste período</p>'}
+  `);
+}
 function viewBarbeiros(){
   const barbs=state.config.barbeiros||[];
   const com=state.config.comissoes||{};
@@ -1902,9 +1946,9 @@ function viewBarbeiros(){
       <button class="btn btn-sm" onclick="barbFiltro='${barbNavDate(1)}';render()">›</button>
     </div>`}
     ${barbs.length?barbs.map(b=>{
-      const ultimoPagto = (state.config.comissoesPagas||{})[b] || 0;
       const ags=state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-      const agsPag=ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
+      // Período manda: conta tudo do período selecionado (pago ou não). Sem memória de "já pago".
+      const agsPag=ags.filter(a=>!a.ePacote);
       const agsPac=ags.filter(a=>a.ePacote);
       const receita=agsPag.reduce((s,a)=>{
         const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
@@ -1927,7 +1971,7 @@ function viewBarbeiros(){
           </div>
           <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:var(--green)">${fmtMoney(receita)}</div><div style="font-size:10px;color:var(--text-3)">receita líquida</div></div>
         </div>
-        ${agsPac.length?`<div style="padding:8px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px">📦 +${agsPac.length} atendimento(s) de pacote — sem lançamento financeiro individual</div>`:''}
+        ${agsPac.length?`<div onclick="modalAtendimentosPacote('${b}')" style="padding:8px 12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:11px;color:var(--amber);margin-bottom:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px"><span>📦 +${agsPac.length} atendimento(s) de pacote — sem lançamento financeiro individual</span><span style="font-size:14px;opacity:.7;flex-shrink:0">›</span></div>`:''}
         ${Object.keys(byServico).length?`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${Object.entries(byServico).map(([s,n])=>`<span style="padding:3px 10px;background:var(--inner);border:1px solid var(--border);border-radius:12px;font-size:11px;color:var(--text-2)">${esc(s)}: <strong>${n}x</strong></span>`).join('')}</div>`:''}
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
           <div style="padding:10px;background:var(--inner);border-radius:8px;text-align:center">
@@ -1959,9 +2003,8 @@ function viewBarbeiros(){
     if(barbModo==='semana') return dias.includes(a.data);
     return (a.data||'').startsWith(barbFiltro.slice(0,7));
   };
-  const ultimoPagto = (state.config.comissoesPagas||{})[b]||0;
   const ags = state.agendamentos.filter(a=>a.barbeiro===b&&a.status==='concluido'&&filtroAg(a));
-  const agsPag = ags.filter(a=>!a.ePacote&&(!ultimoPagto||new Date((a.data||'')+'T23:59:59').getTime()>ultimoPagto));
+  const agsPag = ags.filter(a=>!a.ePacote);
   const receita = agsPag.reduce((s,a)=>{
     const lanc=a.lancamentoId?state.lancamentos.find(l=>l.id===a.lancamentoId):null;
     const baseServ=lanc?lanc.valor:(a.preco||servicoPreco(a.servico)||0);
@@ -2041,7 +2084,6 @@ function viewBarbeiros(){
     .c .val{font-size:17px}
     table{font-size:11px}
     th,td{padding:6px 6px}
-    th:nth-child(3),td:nth-child(3){display:none} /* oculta coluna Cliente em telas pequenas */
   }
 </style></head><body>
 <div class="wrap">
@@ -2141,7 +2183,7 @@ function concluirPacote(id){
   if(_modoOpAtivo){ const ov=document.getElementById('modo-op-overlay'); if(ov) ov.style.display='flex'; setTimeout(renderModoOp,100); }
 }
 function pagarComissao(barbeiro, valor){
-  if(!confirm(`Confirmar pagamento de comissão de ${fmtMoney(valor)} para ${barbeiro}?\n\nIsso lançará uma SAÍDA no financeiro e zerará a contagem.`)) return;
+  if(!confirm(`Confirmar pagamento de comissão de ${fmtMoney(valor)} para ${barbeiro}?\n\nIsso lançará uma SAÍDA no financeiro referente ao período selecionado.`)) return;
   const periodo = barbPeriodoLabel();
   state.lancamentos.push({
     id:uid(),
@@ -2154,13 +2196,9 @@ function pagarComissao(barbeiro, valor){
     createdAt:Date.now(),
     origem:'comissao'
   });
-  // salva o timestamp do pagamento para zerar o ciclo
-  if(!state.config.comissoesPagas) state.config.comissoesPagas={};
-  state.config.comissoesPagas[barbeiro] = Date.now();
   save('lancamentos');
-  saveConfig();
   render();
-  alert(`✅ Comissão de ${fmtMoney(valor)} paga para ${barbeiro}!\nContagem zerada.`);
+  alert(`✅ Comissão de ${fmtMoney(valor)} paga para ${barbeiro}!\nLançada como saída no financeiro.`);
 }
 function viewPacotes(){
   const ativos=state.pacotes.filter(p=>p.ativo!==false);
@@ -2703,16 +2741,11 @@ function saveProduto(id){
 let cfgTab='barbearia';
 const VARS=['{nome}','{hora}','{data}','{servico}','{barbeiro}'];
 function viewConfig(){
-  const tabs=[['barbearia','Barbearia'],['taxas','Taxas'],['mensagens','Mensagens'],['servicos','Serviços'],['financeiro','Financeiro'],['nuvem','☁️ Nuvem']];
+  const tabs=[['barbearia','Barbearia'],['mensagens','Mensagens'],['servicos','Serviços'],['financeiro','Financeiro'],['nuvem','☁️ Nuvem']];
   let body='';
   const cfg=state.config;
   if(cfgTab==='barbearia'){
     body=`<div class="card">
-    ${isDono()?`<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-  <button class="btn btn-primary" onclick="modalCadastrarFuncionario()">+ Cadastrar Funcionário</button>
-  <button class="btn" onclick="modalGerenciarAcessos()">👥 Gerenciar Acessos</button>
-  <button class="btn btn-red" onclick="fazerLogout()">🚪 Sair do sistema</button>
-</div>`:`<div style="margin-bottom:16px"><button class="btn btn-red" onclick="fazerLogout()">🚪 Sair do sistema</button></div>`}
       <h3 style="font-size:14px;margin-bottom:14px">Dados</h3>
       <div class="field"><label class="lbl">Nome da Barbearia</label><input class="inp" value="${esc(cfg.barbearia.nome)}" onchange="cfg_set('barbearia.nome',this.value)"></div>
       <div class="field"><label class="lbl">Endereço</label><input class="inp" value="${esc(cfg.barbearia.endereco)}" placeholder="Endereço completo" onchange="cfg_set('barbearia.endereco',this.value)"></div>
@@ -2736,6 +2769,14 @@ function viewConfig(){
       ${cfg.locais.map((l,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--inner);border:1px solid var(--border);border-radius:8px;margin-bottom:7px"><span style="font-size:13px">${esc(l.nome)}</span>${i>0?`<button style="background:none;border:none;color:var(--red);font-size:16px" onclick="cfg_delLocal(${i})">×</button>`:''}</div>`).join('')}
       <div style="display:flex;gap:7px;margin-top:4px"><input class="inp" style="flex:1" placeholder="Nome do local" onkeydown="if(event.key==='Enter')cfg_addLocal(this)"><button class="btn btn-primary" onclick="cfg_addLocal(this.previousElementSibling)">Adicionar</button></div>
     </div>
+    ${isDono()?`<div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:4px">👥 Equipe e acessos</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Cadastre funcionários e gerencie quem pode acessar o sistema.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="modalCadastrarFuncionario()">+ Cadastrar Funcionário</button>
+        <button class="btn" onclick="modalGerenciarAcessos()">👥 Gerenciar Acessos</button>
+      </div>
+    </div>`:''}
     <div class="card" style="margin-top:14px">
       <h3 style="font-size:14px;margin-bottom:8px">🔒 Proteção por PIN</h3>
       ${cfg.pinHash
@@ -2755,21 +2796,21 @@ function viewConfig(){
         <span style="font-size:13px;font-weight:700;color:var(--gold)">${VERSAO}</span>
       </div>
       <p style="font-size:11px;color:var(--text-3);margin-top:5px">Barbearia Ceribelli Management System</p>
-    </div>`;
-  } else if(cfgTab==='taxas'){
-    body=`<div class="card">
-      <h3 style="font-size:14px;margin-bottom:12px">Taxas da Maquininha</h3>
-      <p style="font-size:12px;color:var(--text-2);margin-bottom:18px">O valor líquido é calculado automaticamente ao registrar uma entrada por cartão.</p>
-      <div class="field"><label class="lbl">Taxa Débito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaDebito}" onchange="cfg_setNum('taxaDebito',this.value)"></div>
-      <div style="padding:9px 12px;background:var(--inner);border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaDebito/100))}</strong></div>
-      <div class="field"><label class="lbl">Taxa Crédito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaCredito}" onchange="cfg_setNum('taxaCredito',this.value)"></div>
-      <div style="padding:9px 12px;background:var(--inner);border-radius:7px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaCredito/100))}</strong></div>
-    </div>`;
+    </div>
+    <div style="margin-top:14px"><button class="btn btn-red" style="width:100%" onclick="fazerLogout()">🚪 Sair do sistema</button></div>`;
   } else if(cfgTab==='financeiro'){
     body=`<div class="card">
       <h3 style="font-size:14px;margin-bottom:12px">🎯 Meta Mensal</h3>
       <div class="field"><label class="lbl">Meta de receita do mês (R$)</label><input type="number" step="100" min="0" class="inp" value="${cfg.metaMensal||0}" onchange="cfg_setNum('metaMensal',this.value)"></div>
       <p style="font-size:11px;color:var(--text-3)">Aparece como barra de progresso na tela Início.</p>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3 style="font-size:14px;margin-bottom:12px">💳 Taxas da Maquininha</h3>
+      <p style="font-size:12px;color:var(--text-2);margin-bottom:18px">O valor líquido é calculado automaticamente ao registrar uma entrada por cartão.</p>
+      <div class="field"><label class="lbl">Taxa Débito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaDebito}" onchange="cfg_setNum('taxaDebito',this.value)"></div>
+      <div style="padding:9px 12px;background:var(--inner);border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaDebito/100))}</strong></div>
+      <div class="field"><label class="lbl">Taxa Crédito (%)</label><input type="number" step="0.01" min="0" class="inp" value="${cfg.taxaCredito}" onchange="cfg_setNum('taxaCredito',this.value)"></div>
+      <div style="padding:9px 12px;background:var(--inner);border-radius:7px;font-size:12px;color:var(--text-2)">Ex: R$ 100,00 → Líquido: <strong style="color:var(--gold)">${fmtMoney(100*(1-cfg.taxaCredito/100))}</strong></div>
     </div>
     <div class="card" style="margin-top:14px">
       <h3 style="font-size:14px;margin-bottom:12px">💸 Comissão por Barbeiro</h3>
@@ -2847,24 +2888,10 @@ function viewConfig(){
   return `<div class="sec-head"><div><h1>Configurações</h1><p>Personalize o sistema da sua barbearia</p></div></div>
     <div class="tabs">${tabs.map(([id,l])=>`<button class="tab ${cfgTab===id?'active':''}" onclick="cfgTab='${id}';render()">${l}</button>`).join('')}</div>
     ${cfgTab==='nuvem'?`<div class="card">
-      <h3 style="font-size:14px;margin-bottom:6px">☁️ Supabase (recomendado)</h3>
-      <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Gratuito para sempre, sem regras que expiram. Seus dados ficam na nuvem e são recuperáveis em qualquer dispositivo.</p>
-      <div style="background:var(--inner);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);margin-bottom:14px;line-height:1.8">
-        <strong style="color:var(--gold);display:block;margin-bottom:6px">Como configurar (5 minutos):</strong>
-        1️⃣ Acesse <a href="https://supabase.com" target="_blank" style="color:var(--gold)">supabase.com</a> → crie conta gratuita<br>
-        2️⃣ Crie um novo projeto → aguarde inicializar<br>
-        3️⃣ No menu lateral → <strong>SQL Editor</strong> → cole e execute:<br>
-        <code style="display:block;background:#1A1A1A;padding:8px;border-radius:6px;margin:6px 0;font-size:11px;color:#A3E635">CREATE TABLE dados (id TEXT PRIMARY KEY, valor JSONB);<br>ALTER TABLE dados ENABLE ROW LEVEL SECURITY;<br>CREATE POLICY "public" ON dados FOR ALL USING (true) WITH CHECK (true);</code>
-        4️⃣ Vá em <strong>Settings → API</strong><br>
-        5️⃣ Copie o <strong>Project URL</strong> e a chave <strong>anon public</strong><br>
-        6️⃣ Cole nos campos abaixo e faça o deploy no GitHub
+      <h3 style="font-size:14px;margin-bottom:10px">☁️ Status da nuvem</h3>
+      <div style="padding:9px 12px;border-radius:7px;font-size:12px;background:${db?'var(--green-bg)':'#1A1A1A'};color:${db?'var(--green)':'var(--text-3)'}">
+        ${db?'✅ Firebase conectado e ativo':'⚠️ Sem nuvem configurada — dados apenas no dispositivo'}
       </div>
-      <div class="field"><label class="lbl">Status atual</label>
-        <div style="padding:8px 12px;border-radius:7px;font-size:12px;background:${db?'var(--green-bg)':(SB_URL&&SB_URL.length>10?'var(--green-bg)':'#1A1A1A')};color:${db?'var(--green)':(SB_URL&&SB_URL.length>10?'var(--green)':'var(--text-3)')}">
-          ${db?'✅ Firebase conectado e ativo':(SB_URL&&SB_URL.length>10?'✅ Supabase ativo':'⚠️ Sem nuvem configurada — dados apenas no dispositivo')}
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--text-3);padding:8px 12px;background:var(--inner);border-radius:7px;margin-bottom:14px">Para alterar o URL e a chave, edite diretamente o arquivo <code>index.html</code> no GitHub nas linhas <code>const SB_URL</code> e <code>const SB_KEY</code>.</div>
     </div>
     <div class="card" style="margin-top:14px">
       <h3 style="font-size:14px;margin-bottom:6px">🔥 Recuperar dados do Firebase</h3>
@@ -3016,11 +3043,11 @@ function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
 
 /* ============ ÍCONES DO TEMPLATE ============ */
 (function injectIcons(){
-  const s=document.querySelector('#sidebar .side-head .side-logo'); if(s)s.innerHTML=ICON.scissors(16,'#0A0A0A');
+  const s=document.querySelector('#sidebar .side-head .side-logo'); if(s)s.innerHTML=logoFill('#0A0A0A');
   const sx=document.querySelector('#sidebar .side-head button'); if(sx)sx.innerHTML=ICON.x(20);
-  const sd=document.querySelector('.side-logo.only-desktop'); if(sd)sd.innerHTML=ICON.scissors(17,'#0A0A0A');
+  const sd=document.querySelector('.side-logo.only-desktop'); if(sd)sd.innerHTML=logoFill('#0A0A0A');
   const bur=document.querySelector('#topbar .burger'); if(bur)bur.innerHTML=ICON.menu(20,'#C9A84C');
-  const brand=document.querySelector('#topbar-brand'); if(brand&&!brand.querySelector('svg'))brand.insertAdjacentHTML('afterbegin',ICON.scissors(16,'#C9A84C'));
+  const brand=document.querySelector('#topbar-brand'); if(brand&&!brand.querySelector('img,svg'))brand.insertAdjacentHTML('afterbegin',logoMark(22,'#C9A84C'));
   const tema=document.querySelector('#btn-tema'); if(tema) tema.innerHTML=temaClaro?ICON.moon(20,'#C9A84C'):ICON.sun(20,'#C9A84C');
   const sino=document.querySelector('#btn-sino'); if(sino&&!sino.querySelector('svg'))sino.insertAdjacentHTML('afterbegin',ICON.bell(20,'#C9A84C'));
   const novo=document.querySelector('#btn-novo'); if(novo)novo.innerHTML=ICON.plus(20,'#C9A84C');
@@ -3031,7 +3058,7 @@ function mostrarTelaLogin(erro){
     <div style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px">
       <div style="width:100%;max-width:360px">
         <div style="text-align:center;margin-bottom:32px">
-          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;margin:0 auto 14px">${ICON.scissors(28,'#0A0A0A')}</div>
+          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-m));display:flex;align-items:center;justify-content:center;margin:0 auto 14px">${logoFill('#0A0A0A')}</div>
           <h1 style="font-size:22px;font-weight:700">${esc(state.config?.barbearia?.nome||'Barbearia Ceribelli')}</h1>
           <p style="font-size:13px;color:var(--text-3);margin-top:4px">Faça login para continuar</p>
         </div>
@@ -3685,7 +3712,7 @@ function renderModoOp(){
   ov.innerHTML=
     // Topbar
     '<div style="position:absolute;top:0;left:0;right:0;padding:env(safe-area-inset-top,0) 16px 0;height:calc(52px + env(safe-area-inset-top,0px));background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:10px">'
-      +'<div style="display:flex;align-items:center;gap:6px">'+ICON.scissors(16,'#C9A84C')+'<span style="font-size:13px;font-weight:700;color:var(--gold)">'+esc(barbearia)+'</span></div>'
+      +'<div style="display:flex;align-items:center;gap:6px">'+logoMark(20,'#C9A84C')+'<span style="font-size:13px;font-weight:700;color:var(--gold)">'+esc(barbearia)+'</span></div>'
       +'<button onclick="toggleModoOp()" style="background:var(--red-bg);border:1px solid var(--red);border-radius:8px;padding:5px 14px;color:var(--red);cursor:pointer;font-size:12px;font-weight:700">✕ Sair</button>'
     +'</div>'
     // Conteúdo central

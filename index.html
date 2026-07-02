@@ -411,6 +411,7 @@ function migrarDados(){
   if(!Array.isArray(c.lembretes)) c.lembretes = [];
   if(!Array.isArray(state.lembretesEnviados)) state.lembretesEnviados = [];
   if(!Array.isArray(state.notifAlteracao)) state.notifAlteracao = [];
+  state.notifAlteracao = state.notifAlteracao.map(n=> (n&&n.id) ? n : {...n, id:uid()});
   if(typeof state.notas !== 'string') state.notas = '';
   if(!c.metaMensal) c.metaMensal = 0;
   if(!c.comissoes) c.comissoes = {};
@@ -496,8 +497,9 @@ let _cloudCounts = {};     // qtd de registros que a nuvem tinha por coleção (
 let _bypassGuard = false;  // libera gravação em ações explícitas (importar / recuperar)
 
 /* ===== Camada 2: merge por registro + listener ao vivo ===== */
-const _MERGE_BY_ID = new Set(['clientes','agendamentos','lancamentos','produtos','pacotes']);
+const _MERGE_BY_ID = new Set(['clientes','agendamentos','lancamentos','produtos','pacotes','notifAlteracao']);
 let _lastIds = {};         // por coleção: ids que sabemos existir (p/ detectar exclusões)
+let _cleanupMode = false;  // limpeza de manutenção: infere tombstones mas pula o aviso de perda em massa
 
 function _idset(arr){ const s=new Set(); (arr||[]).forEach(x=>{ if(x&&x.id!=null) s.add(x.id); }); return s; }
 function _modalAberto(){ const m=document.getElementById('modal-root'); return !!(m && m.innerHTML.trim()); }
@@ -537,7 +539,7 @@ function mergeSave(key){
   if(porId && !_bypassGuard && _lastIds[key]){ const cur=_idset(localArr); _lastIds[key].forEach(id=>{ if(!cur.has(id)) removed.push(id); }); }
 
   // Proteção 2 (repaginada): muitas exclusões de uma vez -> confirma + backup de segurança
-  if(porId && !_bypassGuard && _lastIds[key] && _lastIds[key].size>=10 && removed.length > Math.floor(_lastIds[key].size/2)){
+  if(porId && !_bypassGuard && !_cleanupMode && _lastIds[key] && _lastIds[key].size>=10 && removed.length > Math.floor(_lastIds[key].size/2)){
     const ok = confirm('⚠️ ATENÇÃO\n\nEsta ação vai remover '+removed.length+' de '+_lastIds[key].size+' registros de "'+key+'" na nuvem.\n\nUm backup de segurança vai ser baixado agora. Continuar?');
     try{ exportarBackup(); }catch(e){}
     if(!ok){ setCloudStatus('⛔ Cancelado — backup salvo','#EF4444'); return; }
@@ -1241,6 +1243,7 @@ function saveAgenda(id){
   if(id){
     const ag=state.agendamentos.find(a=>a.id===id);
     if(ag&&(ag.data!==data.data||ag.hora!==data.hora)){
+      state.notifAlteracao=state.notifAlteracao.filter(n=>!(n.agId===id&&!n.enviado)); // 1 pendente por agendamento
       state.notifAlteracao.push({id:uid(),agId:id,clienteNome:data.clienteNome,clienteTelefone:data.clienteTelefone,servico:data.servico,dataAnterior:ag.data,horaAnterior:ag.hora,novaData:data.data,novaHora:data.hora,createdAt:Date.now(),enviado:false});
       save('notifAlteracao');
     }
@@ -1302,6 +1305,24 @@ function enviarNotifAlteracao(id){
   save('notifAlteracao'); render();
 }
 function descartarNotifAlteracao(id){ state.notifAlteracao=state.notifAlteracao.filter(x=>x.id!==id); save('notifAlteracao'); render(); }
+function limparNotifAlteracao(manual){
+  if(!Array.isArray(state.notifAlteracao)) return;
+  const antes=state.notifAlteracao.length;
+  const ordenado=[...state.notifAlteracao].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const vistos={}, limpo=[];
+  ordenado.forEach(n=>{
+    if(n.enviado) return;                         // remove as já enviadas (resolvidas)
+    if(!n.agId){ limpo.push(n); return; }
+    if(vistos[n.agId]) return;                    // mantém só a pendente mais recente por agendamento
+    vistos[n.agId]=true; limpo.push(n);
+  });
+  limpo.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  if(limpo.length!==antes){
+    state.notifAlteracao=limpo;
+    _cleanupMode=true; save('notifAlteracao'); _cleanupMode=false;
+    if(manual){ render(); alert('✅ '+(antes-limpo.length)+' alteração(ões) duplicadas/enviadas removidas.'); }
+  } else if(manual){ alert('Nada a limpar — não há duplicadas nem enviadas.'); }
+}
 function viewLembretes(){
   const pend=lembretesPendentes();
   const prox=lembretesProximos();
@@ -1337,7 +1358,7 @@ function viewLembretes(){
     <div class="sec-head"><div><h1>Lembretes</h1><p>${pend.length} para enviar agora · ${prox.length} agendado(s)${notifs.length?' · '+notifs.length+' alteração(ões)':''}</p></div></div>
     ${notifBanner}
     <div style="padding:9px 12px;background:var(--inner);border-radius:7px;margin-bottom:16px;font-size:12px;color:var(--text-2)">📲 Toque em "Enviar no WhatsApp": a mensagem abre pronta, é só apertar enviar.</div>
-    ${notifs.length?`<h3 style="font-size:13px;margin-bottom:10px;color:var(--amber)">⚠️ Alterações de Horário</h3>
+    ${notifs.length?`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px"><h3 style="font-size:13px;color:var(--amber);margin:0">⚠️ Alterações de Horário</h3><button class="btn btn-sm" style="font-size:10px;padding:4px 10px;white-space:nowrap" onclick="limparNotifAlteracao(true)">🧹 Limpar</button></div>
     ${notifs.map(n=>`<div class="card list-item" style="padding:15px;border-color:var(--amber-bg)">
       <div style="font-weight:700;font-size:14px;color:var(--amber)">${esc(n.clienteNome)}</div>
       <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(n.servico)}</div>
@@ -2025,14 +2046,17 @@ function viewBarbeiros(){
     const margemProd=lanc?(lanc.produtosComanda||[]).reduce((sp,p)=>sp+(p.preco-(p.custo||0)),0):0;
     return s+(baseServ-totalProd)+margemProd;
   },0);
-  const receitaPac = state.lancamentos.filter(l=>{
+  const lancPac = state.lancamentos.filter(l=>{
     if(l.origem!=='pacote' || !(l.valor>0)) return false;
     if(!filtroAg({data:l.dataAgendamento||l.data})) return false;
     if(l.barbeiro) return l.barbeiro===b;
     return agsPac.some(a=>a.data===l.dataAgendamento && (l.descricao||'').includes(a.clienteNome));
-  }).reduce((s,l)=>s+(l.valorLiquido!=null?l.valorLiquido:l.valor),0);
-  const receitaProd = state.lancamentos.filter(l=>l.origem==='produto'&&l.barbeiro===b&&filtroAg({data:l.data})).reduce((s,l)=>s+((l.valor||0)-(l.custoProd||0)),0);
+  });
+  const receitaPac = lancPac.reduce((s,l)=>s+(l.valorLiquido!=null?l.valorLiquido:l.valor),0);
+  const lancProd = state.lancamentos.filter(l=>l.origem==='produto'&&l.barbeiro===b&&filtroAg({data:l.data}));
+  const receitaProd = lancProd.reduce((s,l)=>s+((l.valor||0)-(l.custoProd||0)),0);
   const receita = receitaServ+receitaPac+receitaProd;
+  const totalItens = agsPag.length + lancPac.length + lancProd.length;
   const pct = parseFloat(com[b])||0;
   const comissao = receita*pct/100;
   const periodo = barbPeriodoLabel();
@@ -2072,6 +2096,11 @@ function viewBarbeiros(){
     <td style="text-align:center">${d.qtd}x</td>
     <td style="text-align:right;font-weight:600">${fmtMoney(d.total)}</td>
   </tr>`).join('');
+  const linhasPacote = lancPac.map(l=>{ const cli=((l.descricao||'').split(' — ')[1]||'').replace(/\s*\(.*\)\s*$/,'')||'—'; return `<tr><td>${fmtDate(l.dataAgendamento||l.data)}</td><td>—</td><td>${esc(cli)}</td><td>📦 ${esc(l.descricao||'Pacote')}</td><td style="text-align:right;font-weight:600;color:#16a34a">${fmtMoney(l.valorLiquido!=null?l.valorLiquido:l.valor)}</td></tr>`; }).join('');
+  const linhasProduto = lancProd.map(l=>{ const m=(l.valor||0)-(l.custoProd||0); return `<tr><td>${fmtDate(l.data)}</td><td>—</td><td>—</td><td>🛒 ${esc(l.descricao||'Produto')} <span style="font-size:11px;color:#6b7280">(margem)</span></td><td style="text-align:right;font-weight:600;color:#16a34a">${fmtMoney(m)}</td></tr>`; }).join('');
+  let linhasResumoExtra='';
+  if(receitaPac>0) linhasResumoExtra+=`<tr><td>📦 Pacotes</td><td style="text-align:center">${lancPac.length}x</td><td style="text-align:right;font-weight:600">${fmtMoney(receitaPac)}</td></tr>`;
+  if(receitaProd>0) linhasResumoExtra+=`<tr><td>🛒 Produtos (margem)</td><td style="text-align:center">${lancProd.length}x</td><td style="text-align:right;font-weight:600">${fmtMoney(receitaProd)}</td></tr>`;
   const html=`<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -2123,18 +2152,18 @@ function viewBarbeiros(){
   <h2>Resumo por Serviço</h2>
   <table>
     <thead><tr><th>Serviço</th><th style="text-align:center">Qtd</th><th style="text-align:right">Total</th></tr></thead>
-    <tbody>${linhasResumo}</tbody>
-    <tfoot><tr class="total-row"><td>Total</td><td style="text-align:center">${agsPag.length}x</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
+    <tbody>${linhasResumo}${linhasResumoExtra}</tbody>
+    <tfoot><tr class="total-row"><td>Total</td><td style="text-align:center">${totalItens}x</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
   </table>
   <h2>Detalhes dos Atendimentos</h2>
   <table>
     <thead><tr><th>Data</th><th>Hora</th><th>Cliente</th><th>Serviço</th><th style="text-align:right">Valor</th></tr></thead>
-    <tbody>${linhasDetalhes||'<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Nenhum atendimento no período</td></tr>'}</tbody>
+    <tbody>${(linhasDetalhes+linhasPacote+linhasProduto)||'<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Nenhum atendimento no período</td></tr>'}</tbody>
     <tfoot><tr class="total-row"><td colspan="4">Total Geral</td><td style="text-align:right">${fmtMoney(receita)}</td></tr></tfoot>
   </table>
   <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:14px;font-size:13px">
     <strong>💰 Comissão a pagar:</strong> ${pct}% sobre ${fmtMoney(receita)} = <strong style="color:#d97706;font-size:15px">${fmtMoney(comissao)}</strong>
-    <div style="font-size:11px;color:#92400e;margin-top:4px">Calculado sobre o valor bruto dos serviços. As taxas de maquininha são custo da casa e não entram na comissão.</div>
+    <div style="font-size:11px;color:#92400e;margin-top:4px">Calculado sobre serviços + venda de pacotes + margem de produtos. As taxas de maquininha são custo da casa e não entram na comissão.</div>
   </div>
   <div class="footer">${esc(barbearia)} · Relatório gerado pelo sistema Na Régua</div>
 </div>
@@ -3642,8 +3671,9 @@ async function boot(){
         if(state.notas) db.collection('dados').doc('notas').set({value:state.notas}).catch(()=>{});
       }
       ['clientes','agendamentos','lancamentos','produtos','lembretesEnviados','notifAlteracao','pacotes'].forEach(k=>{ if(Array.isArray(state[k])) _cloudCounts[k]=state[k].length; });
-      ['clientes','agendamentos','lancamentos','produtos','pacotes'].forEach(k=>{ if(Array.isArray(state[k])) _lastIds[k]=_idset(state[k]); });
+      ['clientes','agendamentos','lancamentos','produtos','pacotes','notifAlteracao'].forEach(k=>{ if(Array.isArray(state[k])) _lastIds[k]=_idset(state[k]); });
       ativarListenerNuvem();
+      limparNotifAlteracao(false);
       setCloudStatus('☁️ Firebase sincronizado','#22C55E');
     }catch(e){
       console.warn('Firebase load:',e);

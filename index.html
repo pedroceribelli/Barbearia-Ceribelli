@@ -1555,6 +1555,7 @@ function modalVender(id){
     <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="vd-pay">
       ${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setVenderPay('${v}')">${l}</button>`).join('')}
     </div></div>
+    <div class="field"><label class="lbl">Barbeiro (para comissão)</label><select id="vd-barb" class="inp"><option value="">Selecionar...</option>${(state.config.barbeiros||[]).map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
     <div id="vd-resumo" style="padding:10px 12px;background:var(--green-bg);border-radius:7px;font-size:13px;color:var(--green);margin-bottom:8px"></div>
     <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmarVender('${id}')">Confirmar venda</button></div>
   `);
@@ -1571,7 +1572,8 @@ function confirmarVender(id){
   const p=state.produtos.find(x=>x.id===id); if(!p) return;
   const f=valorFinal('vd-valor','vd-desc','vd-tipo');
   const liq=calcLiquido(f,venderTmp.formaPagamento);
-  state.lancamentos.push({id:uid(),tipo:'entrada',descricao:`Produto: ${p.nome}`,categoria:'Produto',valor:f,valorLiquido:liq,formaPagamento:venderTmp.formaPagamento,data:todayStr(),createdAt:Date.now(),origem:'produto'});
+  const barbSel=(document.getElementById('vd-barb')||{}).value||'';
+  state.lancamentos.push({id:uid(),tipo:'entrada',descricao:`Produto: ${p.nome}`,categoria:'Produto',valor:f,valorLiquido:liq,formaPagamento:venderTmp.formaPagamento,data:todayStr(),createdAt:Date.now(),origem:'produto',barbeiro:barbSel,custoProd:(p.custo||0)});
   if(p.estoque!==''&&p.estoque!=null){ const novo=Math.max(0,parseInt(p.estoque)-1); state.produtos=state.produtos.map(x=>x.id===id?{...x,estoque:novo}:x); }
   save('lancamentos'); save('produtos'); closeModal(); render();
 }
@@ -1964,7 +1966,9 @@ function viewBarbeiros(){
         if(l.barbeiro) return l.barbeiro===b;                                   // lançamentos novos
         return agsPac.some(a=>a.data===l.dataAgendamento && (l.descricao||'').includes(a.clienteNome)); // legado (casa por data+cliente)
       }).reduce((s,l)=>s+(l.valorLiquido!=null?l.valorLiquido:l.valor),0);
-      const receita=receitaServ+receitaPac;
+      // Margem de produtos vendidos por este barbeiro (mesmo critério da comanda: preço − custo)
+      const receitaProd=state.lancamentos.filter(l=>l.origem==='produto'&&l.barbeiro===b&&filtroAg({data:l.data})).reduce((s,l)=>s+((l.valor||0)-(l.custoProd||0)),0);
+      const receita=receitaServ+receitaPac+receitaProd;
       const pct=parseFloat(com[b])||0;
       // Gorjetas do barbeiro no período (100% dele, não entra no % de comissão)
       const gorjetas=state.lancamentos.filter(l=>l.origem==='gorjeta'&&l.barbeiro===b&&filtroAg({data:l.dataAgendamento||l.data})).reduce((s,l)=>s+l.valor,0);
@@ -2027,7 +2031,8 @@ function viewBarbeiros(){
     if(l.barbeiro) return l.barbeiro===b;
     return agsPac.some(a=>a.data===l.dataAgendamento && (l.descricao||'').includes(a.clienteNome));
   }).reduce((s,l)=>s+(l.valorLiquido!=null?l.valorLiquido:l.valor),0);
-  const receita = receitaServ+receitaPac;
+  const receitaProd = state.lancamentos.filter(l=>l.origem==='produto'&&l.barbeiro===b&&filtroAg({data:l.data})).reduce((s,l)=>s+((l.valor||0)-(l.custoProd||0)),0);
+  const receita = receitaServ+receitaPac+receitaProd;
   const pct = parseFloat(com[b])||0;
   const comissao = receita*pct/100;
   const periodo = barbPeriodoLabel();
@@ -2464,13 +2469,17 @@ function viewFinanceiro(){
             ${taxa>0.001?`<div style="font-size:10px;color:var(--amber);margin-top:4px">Taxa: −${fmtMoney(taxa)} → Líquido: ${fmtMoney(l.valorLiquido)}</div>`:''}${l.precoVigente!=null&&l.origem==='agendamento'?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">Tabela na época: ${fmtMoney(l.precoVigente)}</div>`:''}${l.dataAgendamento&&l.dataAgendamento!==l.data?`<div style="font-size:10px;color:var(--text-3);margin-top:2px">📅 Agendado para: ${fmtDate(l.dataAgendamento)}</div>`:''}</div>
           <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:15px;font-weight:700;color:${valorCor}">${valorStr}</div><div style="font-size:10px;color:var(--text-3);margin-top:2px">${fmtDate(l.data)}</div></div>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+          ${l.origem==='produto'?`<div style="display:flex;align-items:center;gap:6px;font-size:11px"><span style="color:var(--text-3)">Comissão p/:</span><select class="inp" style="font-size:11px;padding:2px 6px;width:auto;min-width:0" onchange="setLancBarbeiro('${l.id}',this.value)"><option value="">—</option>${(state.config.barbeiros||[]).map(b=>`<option ${l.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>`:'<span></span>'}
+          <button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button>
+        </div>
       </div>`;}).join(''):`<div class="card empty">${ICON.dollar(36,'#252525')}<p>Nenhum lançamento${finModo!=='tudo'?' neste período':''}</p><button class="btn btn-primary" onclick="modalLanc()">Novo Lançamento</button></div>`}
     ${finModo!=='tudo'?`<div style="margin-top:16px;padding:12px 14px;background:var(--inner);border-radius:8px;border:1px solid var(--border);font-size:12px;color:var(--text-3);text-align:center">
       Total geral (todos os períodos) — Entradas: <strong style="color:var(--green)">${fmtMoney(entAll)}</strong> · Saídas: <strong style="color:var(--red)">${fmtMoney(saiAll)}</strong> · Saldo: <strong style="color:${entAll-saiAll>=0?'var(--green)':'var(--red)'}">${fmtMoney(entAll-saiAll)}</strong>
     </div>`:''}`;
 }
 function delLanc(id){ if(confirm('Remover lançamento?')){ state.lancamentos=state.lancamentos.filter(l=>l.id!==id); save('lancamentos'); render(); } }
+function setLancBarbeiro(id,barbeiro){ state.lancamentos=state.lancamentos.map(l=>l.id===id?{...l,barbeiro}:l); save('lancamentos'); render(); }
 
 function gerarRelatorioFinanceiro(){
   const lista = finLista().slice().sort((a,b)=>{

@@ -259,8 +259,32 @@ async function carregarRole(uid){
       currentBarbeiro = d.barbeiro || null;
       return d.role || 'funcionario';
     }
-  }catch(e){}
-  return 'dono';
+    // Doc do usuário não existe ainda. Antes isso liberava 'dono' automaticamente para
+    // QUALQUER login sem registro — risco sério (funcionário removido, conta perdida,
+    // ou qualquer login novo virava administrador). Agora só liberamos 'dono' sem
+    // registro prévio quando a coleção 'usuarios' está genuinamente vazia, ou seja,
+    // é o primeiro acesso ao sistema (configuração inicial do dono). Qualquer outro
+    // caso de doc ausente fica sem acesso até o dono cadastrar o funcionário.
+    const primeiroUsuario = await db.collection('usuarios').limit(1).get();
+    if(primeiroUsuario.empty) return 'dono';
+    return 'sem-acesso';
+  }catch(e){
+    // Erro de rede/permissão ao consultar o Firestore: não sabemos o role real.
+    // Por segurança, nunca liberar acesso de dono nesse cenário.
+    return 'sem-acesso';
+  }
+}
+
+function mostrarTelaSemAcesso(){
+  document.getElementById('auth-root').innerHTML = `
+    <div style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px">
+      <div style="width:100%;max-width:360px;text-align:center">
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--amber-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:28px">🔒</div>
+        <h1 style="font-size:19px;font-weight:700;margin-bottom:8px">Acesso não liberado</h1>
+        <p style="font-size:13px;color:var(--text-2);margin-bottom:20px">Seu login foi reconhecido, mas ainda não há permissão configurada para esta conta. Peça ao dono da barbearia para te cadastrar em Config → Equipe e acessos.</p>
+        <button class="btn" onclick="auth.signOut()">Sair</button>
+      </div>
+    </div>`;
 }
 
 if(auth){
@@ -268,6 +292,10 @@ if(auth){
     currentUser = user;
     if(user){
       currentRole = await carregarRole(user.uid);
+      if(currentRole === 'sem-acesso'){
+        mostrarTelaSemAcesso();
+        return;
+      }
       // qualquer usuário com barbeiro vinculado: pré-seleciona na agenda
       if(currentBarbeiro){
         agFiltroBarb = currentBarbeiro;
@@ -306,7 +334,8 @@ async function cloudSave(key, valor){
   if(!cloudAtivo()) return;
   try{
     await fetch(SB_URL+'/rest/v1/dados',{method:'POST',headers:{...sbHeaders(),'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({id:key,valor})});
-  }catch(e){ console.warn('Supabase save:',e); }
+    _limparPendente(key);
+  }catch(e){ console.warn('Supabase save:',e); _marcarPendente(key); }
 }
 async function cloudLoad(){
   if(!cloudAtivo()) return false;
@@ -329,7 +358,9 @@ async function cloudLoad(){
 }
 
 /* ============ HELPERS ============ */
-const uid = () => Math.random().toString(36).slice(2,10);
+// Usa crypto.randomUUID() quando disponível (risco de colisão praticamente nulo).
+// Mantém fallback com Math.random() para navegadores muito antigos / contexto não seguro.
+const uid = () => (typeof crypto!=='undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36)+Math.random().toString(36).slice(2,10));
 const fmtMoney = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
 const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; };
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -365,6 +396,30 @@ function servicoPreco(nome){
 function servicoDuracao(nome){
   const s = (state.config.servicos||[]).find(x=>x && x.nome===nome);
   return s ? (s.duracao||0) : 0;
+}
+/* Converte 'HH:MM' em minutos desde meia-noite */
+function horaParaMin(hhmm){
+  const [h,m] = String(hhmm||'0:0').split(':').map(Number);
+  return (h||0)*60 + (m||0);
+}
+/* Verifica se um novo agendamento (data/hora/duração/barbeiro) colide com algum já existente.
+   excluirId serve para não comparar o agendamento consigo mesmo ao editar. */
+function agendaConflito(data, hora, servico, barbeiro, excluirId){
+  if(!barbeiro) return null; // sem barbeiro definido, não dá pra checar conflito por profissional
+  const duracao = servicoDuracao(servico) || 30;
+  const inicioNovo = horaParaMin(hora);
+  const fimNovo = inicioNovo + duracao;
+  const candidatos = state.agendamentos.filter(a=>
+    a.id!==excluirId && a.data===data && a.barbeiro===barbeiro && a.status!=='cancelado'
+  );
+  for(const a of candidatos){
+    const inicioExist = horaParaMin(a.hora);
+    const fimExist = inicioExist + (servicoDuracao(a.servico) || 30);
+    if(inicioNovo < fimExist && inicioExist < fimNovo){
+      return a;
+    }
+  }
+  return null;
 }
 /* Datas (formato local YYYY-MM-DD) */
 function parseLocalDate(s){ const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d); }
@@ -496,6 +551,35 @@ let cloudSyncOK = false;   // só vira true após carregar a nuvem com sucesso n
 let _cloudCounts = {};     // qtd de registros que a nuvem tinha por coleção (referência anti-perda)
 let _bypassGuard = false;  // libera gravação em ações explícitas (importar / recuperar)
 
+/* ===== Melhoria: fila visível de alterações pendentes de sincronização ===== */
+let _pendingSyncKeys = new Set();
+function _marcarPendente(key){ _pendingSyncKeys.add(key); atualizarBadgeSync(); }
+function _limparPendente(key){ _pendingSyncKeys.delete(key); atualizarBadgeSync(); }
+function atualizarBadgeSync(){
+  let el=document.getElementById('sync-pendente-badge');
+  if(_pendingSyncKeys.size===0){ if(el) el.remove(); return; }
+  if(!el){
+    el=document.createElement('div'); el.id='sync-pendente-badge';
+    el.style.cssText='position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#1F1706;border:1px solid #F59E0B60;color:#F59E0B;font-size:11px;font-weight:600;padding:7px 10px 7px 14px;border-radius:20px;z-index:2100;white-space:nowrap;display:flex;align-items:center;gap:8px;box-shadow:0 4px 16px rgba(0,0,0,.4)';
+    document.body.appendChild(el);
+  }
+  const n=_pendingSyncKeys.size;
+  el.innerHTML = `⏳ ${n} alteraç${n>1?'ões':'ão'} aguardando sync`
+    + `<button onclick="tentarSincronizarPendentes()" style="background:#F59E0B;border:none;border-radius:12px;padding:3px 10px;font-size:10px;font-weight:700;color:#0A0A0A;cursor:pointer">Sincronizar</button>`;
+}
+async function tentarSincronizarPendentes(){
+  if(_pendingSyncKeys.size===0) return;
+  if(!navigator.onLine){ setCloudStatus('⚠️ Ainda sem internet','#F59E0B'); return; }
+  if(db && !cloudSyncOK){
+    // tenta reconfirmar a conexão antes de reenviar (evita sobrescrever a nuvem com dados velhos)
+    try{ await db.collection('dados').limit(1).get(); cloudSyncOK = true; }catch(e){ setCloudStatus('⚠️ Ainda sem conexão com o Firebase','#F59E0B'); return; }
+  }
+  Array.from(_pendingSyncKeys).forEach(key=>{
+    if(db){ mergeSave(key); } else { cloudSave(key, state[key]).then(()=>_limparPendente(key)); }
+  });
+}
+window.addEventListener('online', ()=>{ tentarSincronizarPendentes(); });
+
 /* ===== Camada 2: merge por registro + listener ao vivo ===== */
 const _MERGE_BY_ID = new Set(['clientes','agendamentos','lancamentos','produtos','pacotes','notifAlteracao']);
 let _lastIds = {};         // por coleção: ids que sabemos existir (p/ detectar exclusões)
@@ -517,10 +601,13 @@ function save(key){
   // (ex.: abriu sem internet -> estamos com cópia possivelmente velha -> não sobrescrever)
   if(!cloudSyncOK && !_bypassGuard){
     setCloudStatus('⚠️ Offline — alterações salvas só neste aparelho','#F59E0B');
+    _marcarPendente(key);
     return;
   }
   if(!Array.isArray(state[key])){   // chave fora do padrão de lista: comportamento simples
-    db.collection('dados').doc(key).set({items:state[key]}).catch(e=>{ console.warn('FB save',key,e); setCloudStatus('⚠️ Erro ao salvar na nuvem','#EF4444'); });
+    db.collection('dados').doc(key).set({items:state[key]})
+      .then(()=>_limparPendente(key))
+      .catch(e=>{ console.warn('FB save',key,e); _marcarPendente(key); setCloudStatus('⚠️ Erro ao salvar na nuvem','#EF4444'); });
     return;
   }
   mergeSave(key);
@@ -576,10 +663,12 @@ function mergeSave(key){
     LS.set('bc:'+key, finalArr);
     if(porId) _lastIds[key] = _idset(finalArr);
     _cloudCounts[key] = finalArr.length;
+    _limparPendente(key);
     setCloudStatus('☁️ Firebase sincronizado','#22C55E');
     if(!_modalAberto()) render();
   }).catch(e=>{
     console.warn('FB mergeSave',key,e);
+    _marcarPendente(key);
     setCloudStatus('⚠️ Erro ao salvar na nuvem','#EF4444');
   });
 }
@@ -1025,27 +1114,42 @@ function viewAgendaTimeline(){
       }
     </div>
     <div class="card" style="padding:12px">
-      ${slots.map(slot=>{
-        const ag=ags.find(a=>a.hora===slot);
-        if(ag){
-          const cor=servicoCor(ag.servico);
-          return '<div style="display:flex;gap:10px;align-items:stretch;margin-bottom:6px">'
-            +'<div style="width:42px;font-size:11px;font-weight:700;color:var(--text-3);padding-top:6px;flex-shrink:0">'+slot+'</div>'
-            +'<div style="flex:1;background:'+cor+'22;border:2px solid '+cor+';border-radius:8px;padding:8px 12px;cursor:pointer" onclick="modalAgenda(\''+ag.id+'\')">'
-            +'<div style="font-weight:700;font-size:13px;color:'+cor+'">'+esc(ag.clienteNome)+(ag.isWalkIn?' ⚡':'')+'</div>'
-            +'<div style="font-size:11px;color:var(--text-2);margin-top:2px">'+esc(ag.servico)+'</div>'
-            +'<div style="display:flex;gap:6px;margin-top:6px">'
-            +(ag.status!=='concluido'
-              ?'<button class="btn btn-green btn-sm" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();modalConcluir(\''+ag.id+'\')">✓ Concluir</button>'
-              :'<span style="font-size:10px;color:var(--green);font-weight:700">✓ Concluído</span>')
-            +'</div></div></div>';
-        } else {
-          const isHora=slot.endsWith(':00');
-          return '<div style="display:flex;gap:10px;align-items:center;margin-bottom:2px">'
-            +'<div style="width:42px;font-size:'+(isHora?'11':'10')+'px;color:var(--text-3);font-weight:'+(isHora?'700':'400')+';flex-shrink:0">'+slot+'</div>'
-            +'<div style="flex:1;height:'+(isHora?'22':'16')+'px;border-bottom:1px '+(isHora?'solid':'dashed')+' var(--border);opacity:0.5"></div></div>';
+      ${(()=>{
+        // Melhoria: a timeline agora respeita a duração do serviço (bloco ocupa vários
+        // slots de 30min proporcional à duração) e destaca conflitos de horário em vermelho.
+        const linhas=[];
+        let ocupadoAteMin=-1; // minuto até onde o slot atual está coberto por um bloco anterior
+        for(const slot of slots){
+          const slotMin=horaParaMin(slot);
+          if(slotMin<ocupadoAteMin) continue; // slot já coberto pela duração do agendamento anterior
+          const ag=ags.find(a=>a.hora===slot);
+          if(ag){
+            const duracao=servicoDuracao(ag.servico)||30;
+            const numSlots=Math.max(1,Math.ceil(duracao/30));
+            ocupadoAteMin=slotMin+numSlots*30;
+            const conflito=agendaConflito(data, ag.hora, ag.servico, ag.barbeiro, ag.id);
+            const cor=conflito?'#EF4444':servicoCor(ag.servico);
+            const alturaMin=numSlots*30+(numSlots-1)*6; // aproxima altura ao número de slots ocupados
+            linhas.push('<div style="display:flex;gap:10px;align-items:stretch;margin-bottom:6px">'
+              +'<div style="width:42px;font-size:11px;font-weight:700;color:var(--text-3);padding-top:6px;flex-shrink:0">'+slot+'</div>'
+              +'<div style="flex:1;min-height:'+alturaMin+'px;background:'+cor+'22;border:2px solid '+cor+';border-radius:8px;padding:8px 12px;cursor:pointer" onclick="modalAgenda(\''+ag.id+'\')">'
+              +(conflito?'<div style="font-size:10px;font-weight:700;color:#EF4444;margin-bottom:3px">⚠ CONFLITO com '+esc(conflito.clienteNome)+' ('+conflito.hora+')</div>':'')
+              +'<div style="font-weight:700;font-size:13px;color:'+cor+'">'+esc(ag.clienteNome)+(ag.isWalkIn?' ⚡':'')+'</div>'
+              +'<div style="font-size:11px;color:var(--text-2);margin-top:2px">'+esc(ag.servico)+(duracao?' · '+duracao+'min':'')+'</div>'
+              +'<div style="display:flex;gap:6px;margin-top:6px">'
+              +(ag.status!=='concluido'
+                ?'<button class="btn btn-green btn-sm" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();modalConcluir(\''+ag.id+'\')">✓ Concluir</button>'
+                :'<span style="font-size:10px;color:var(--green);font-weight:700">✓ Concluído</span>')
+              +'</div></div></div>');
+          } else {
+            const isHora=slot.endsWith(':00');
+            linhas.push('<div style="display:flex;gap:10px;align-items:center;margin-bottom:2px">'
+              +'<div style="width:42px;font-size:'+(isHora?'11':'10')+'px;color:var(--text-3);font-weight:'+(isHora?'700':'400')+';flex-shrink:0">'+slot+'</div>'
+              +'<div style="flex:1;height:'+(isHora?'22':'16')+'px;border-bottom:1px '+(isHora?'solid':'dashed')+' var(--border);opacity:0.5"></div></div>');
+          }
         }
-      }).join('')}
+        return linhas.join('');
+      })()}
     </div>`;
 }
 
@@ -1104,7 +1208,9 @@ function saveWalkIn(){
   state.agendamentos.push({id:uid(),clienteNome:nome,clienteTelefone:'',servico,barbeiro,data:agFiltro||todayStr(),hora:horaAgora(),status:'agendado',obs:'',isWalkIn:true,wiProdutos:[...wiProdutos],createdAt:Date.now(),confirmacaoEnviada:false});
   save('agendamentos'); closeModal(); render();
 }
+let _agModalEditId=null;
 function modalAgenda(id){
+  _agModalEditId=id||null;
   // Usa sempre a data do filtro atual (ou hoje), sem forçar amanhã
   let dataDef = agFiltro||todayStr();
   const a = id?state.agendamentos.find(x=>x.id===id):{clienteNome:'',clienteTelefone:'',servico:'',barbeiro:'',data:dataDef,hora:'09:00',status:'agendado',obs:''};
@@ -1126,9 +1232,9 @@ function modalAgenda(id){
       <div class="field"><label class="lbl">Telefone (WhatsApp)</label><input id="m-tel" class="inp" value="${esc(a.clienteTelefone)}" placeholder="(11) 99999-9999"></div>
     </div>
     <div class="row2" style="overflow:hidden"><div class="field"><label class="lbl">Data</label><input id="m-data" type="date" class="inp" style="max-width:100%;min-width:0" value="${a.data}" onchange="ajustarHoraMin()" oninput="ajustarHoraMin()"></div>
-      <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora, a.data)}</select></div></div>
-    <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
-    <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
+      <div class="field"><label class="lbl">Hora</label><select id="m-hora" class="inp" style="max-width:100%;min-width:0">${gerarSlotsHora(a.hora, a.data, a.barbeiro, id)}</select></div></div>
+    <div class="field"><label class="lbl">Serviço</label><select id="m-serv" class="inp" onchange="ajustarHoraMin()"><option value="">Selecionar...</option>${state.config.servicos.map(s=>`<option ${a.servico===s.nome?'selected':''}>${esc(s.nome)}</option>`).join('')}</select></div>
+    <div class="field"><label class="lbl">Barbeiro</label><select id="m-barb" class="inp" onchange="ajustarHoraMin()"><option value="">Selecionar...</option>${state.config.barbeiros.map(b=>`<option ${a.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Status</label><select id="m-status" class="inp">${['agendado','concluido','cancelado'].map(s=>`<option value="${s}" ${a.status===s?'selected':''}>${ST_LBL[s]}</option>`).join('')}</select></div>
     <div class="field"><label class="lbl">Observações</label><textarea id="m-obs" class="inp" placeholder="Opcional...">${esc(a.obs)}</textarea></div>
     <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveAgenda('${id||''}')">Salvar</button></div>
@@ -1139,19 +1245,35 @@ function modalAgenda(id){
 }
 function horaAgora(){ const d=new Date(); const h=d.getHours(); const m=d.getMinutes()>=30?30:0; return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'); }
 function proximoSlotDisponivel(){ const agora=horaAgora(); const slots=[]; for(let h=6;h<=23;h++){ slots.push(String(h).padStart(2,'0')+':00'); if(h<23) slots.push(String(h).padStart(2,'0')+':30'); } return slots.find(s=>s>=agora)||'09:00'; }
-function gerarSlotsHora(selecionado, dataRef){
+function gerarSlotsHora(selecionado, dataRef, barbeiro, excluirId){
   const slots=[];
   for(let h=6;h<=23;h++){ slots.push(String(h).padStart(2,'0')+':00'); if(h<23) slots.push(String(h).padStart(2,'0')+':30'); }
   let sel = selecionado;
   if(!sel) sel = '09:00';
-  return slots.map(s=>`<option value="${s}" ${s===sel?'selected':''}>${s}</option>`).join('');
+  const hoje = todayStr();
+  const agoraMin = horaParaMin(horaAgora());
+  const ocupados = barbeiro
+    ? state.agendamentos.filter(a=>a.id!==excluirId && a.data===dataRef && a.barbeiro===barbeiro && a.status!=='cancelado')
+    : [];
+  return slots.map(s=>{
+    const min=horaParaMin(s);
+    const passado = dataRef===hoje && min<agoraMin;
+    const ocupado = ocupados.some(a=>{
+      const inicio=horaParaMin(a.hora), fim=inicio+(servicoDuracao(a.servico)||30);
+      return min>=inicio && min<fim;
+    });
+    // não desabilita de verdade (usuário pode querer forçar um horário passado/ocupado
+    // manualmente), só sinaliza — o bloqueio de conflito real acontece em saveAgenda().
+    const label = ocupado ? s+' · ocupado' : passado ? s+' · já passou' : s;
+    return `<option value="${s}" ${s===sel?'selected':''} ${ocupado?'style="color:var(--red)"':passado?'style="color:var(--text-3)"':''}>${label}</option>`;
+  }).join('');
 }
 function ajustarHoraMin(){
-  const dataEl=document.getElementById('m-data'), horaEl=document.getElementById('m-hora');
+  const dataEl=document.getElementById('m-data'), horaEl=document.getElementById('m-hora'), barbEl=document.getElementById('m-barb');
   if(!dataEl||!horaEl) return;
-  // Regenera as opções completamente para a nova data (mais confiável em mobile)
+  // Regenera as opções completamente para a nova data/barbeiro (mais confiável em mobile)
   const valorAtual=horaEl.value;
-  horaEl.innerHTML=gerarSlotsHora(valorAtual, dataEl.value);
+  horaEl.innerHTML=gerarSlotsHora(valorAtual, dataEl.value, barbEl?barbEl.value:'', _agModalEditId);
 }
 function setAgModo(m){
   agModo=m;
@@ -1231,6 +1353,12 @@ function saveAgenda(id){
       data.servico=pk.servicos[si].servico;
       pacoteRef={ePacote:true,pacoteId:pts[1],pacoteServIdx:si};
     }
+  }
+  // bloqueia conflito de horário: mesmo barbeiro, mesma data, horários que se sobrepõem
+  const conflito = agendaConflito(data.data, data.hora, data.servico, data.barbeiro, id);
+  if(conflito){
+    alert(`Conflito de horário: ${conflito.clienteNome} já está agendado com ${data.barbeiro} às ${conflito.hora} (${conflito.servico}). Escolha outro horário.`);
+    return;
   }
   // cadastra automaticamente o cliente se ainda não existir
   const telNorm=data.clienteTelefone.replace(/\D/g,'');
@@ -1452,7 +1580,9 @@ function modalConcluir(id){
   }
   // Fluxo normal (serviço avulso)
   concluirTmp={formaPagamento:'pix'};
-  concluirProdutos=[];
+  // Corrige bug: produtos adicionados no Walk-in (a.wiProdutos) se perdiam ao concluir,
+  // pois aqui sempre zerava a lista. Agora pré-carrega os produtos do walk-in, se houver.
+  concluirProdutos=[...(a.wiProdutos||[])];
   const preco=servicoPreco(a.servico);
   const precoVigente=preco; // captura preço atual do serviço no momento do atendimento
   openModal(`
@@ -1533,7 +1663,7 @@ function confirmarConcluir(id){
   const lancId=uid();
   const nomesProd=concluirProdutos.map(p=>p.nome);
   const desc=`${a.servico} — ${a.clienteNome}`+(nomesProd.length?` (+ ${nomesProd.join(', ')})`:'');
-  state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'agendamento',produtosComanda:concluirProdutos.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0})),precoVigente:servicoPreco(a.servico)});
+  state.lancamentos.push({id:lancId,tipo:'entrada',descricao:desc,categoria:'Serviço',valor:f,valorLiquido:liq,formaPagamento:concluirTmp.formaPagamento,barbeiro:a.barbeiro||'',data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'agendamento',produtosComanda:concluirProdutos.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0})),precoVigente:servicoPreco(a.servico)});
   // Gorjeta: lançamento separado, 100% para o barbeiro (não entra no cálculo de comissão percentual — é lançada como entrada direta)
   if(tip>0){
     state.lancamentos.push({
@@ -3195,10 +3325,15 @@ async function fazerLogout(){
 }
 
 async function revogarAcesso(uid, nome){
-  if(!confirm(`Revogar acesso de ${nome}?\n\nEle não conseguirá mais entrar no sistema.`)) return;
+  // IMPORTANTE: isso remove o acesso ao APP (o funcionário cai na tela de "acesso não
+  // liberado" ao tentar entrar, graças à correção do role padrão). Mas a conta de login
+  // no Firebase Authentication em si continua existindo — desativá-la de verdade exige
+  // o Admin SDK do Firebase (chave de servidor), que nunca deve ficar no código do
+  // navegador (viraria uma falha de segurança pior). Por isso avisamos o dono aqui.
+  if(!confirm(`Revogar acesso de ${nome}?\n\nEle não conseguirá mais USAR o sistema (vai cair numa tela de "acesso não liberado").\n\nATENÇÃO: o login dele no Firebase não é desativado por aqui. Para remover o login por completo, vá em firebase.google.com → seu projeto → Authentication → Users e desative/exclua o usuário manualmente.`)) return;
   try{
     await db.collection('usuarios').doc(uid).delete();
-    alert(`✅ Acesso de ${nome} revogado!`);
+    alert(`✅ Acesso de ${nome} revogado no app!\n\nLembrete: se quiser bloquear o login dele por completo (não só o uso do app), desative a conta também no painel do Firebase (Authentication → Users).`);
     modalGerenciarAcessos();
   } catch(e){
     alert('Erro ao revogar: ' + e.message);

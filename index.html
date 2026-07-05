@@ -473,6 +473,7 @@ function migrarDados(){
   if(!Array.isArray(c.despesasFixas)) c.despesasFixas = [];
   if(c.pinHash===undefined) c.pinHash = '';
   if(!Array.isArray(state.pacotes)) state.pacotes = [];
+  state.pacotes = state.pacotes.map(p=>({...p, pagamentos: Array.isArray(p.pagamentos)?p.pagamentos:[], produtosPendentes: Array.isArray(p.produtosPendentes)?p.produtosPendentes:[]}));
   if(!c.msgPacoteRenovado) c.msgPacoteRenovado='Olá {nome}! 🎉 Seu pacote *{pacote}* do mês de {mes} foi renovado com sucesso!\n💈 Valor: {valor}\nObrigado pela confiança! Qualquer dúvida é só chamar. ✂️';
 }
 
@@ -1566,16 +1567,56 @@ function modalConcluir(id){
     const pk=state.pacotes.find(x=>x.id===a.pacoteId);
     const s=pk?.servicos[a.pacoteServIdx];
     const rest=s?(s.quantidade-(s.usados||0)):0;
+    const eraZero = s && (s.usados||0)===0;
+    const valorPac = pk?.valorTotal||0;
+    pacoteProdutosTemp=[]; pacotePagTmp={formaPagamento:'pix'}; pacoteProdModo='agora';
+    const prodOpts=`<option value="">Selecione um produto para adicionar...</option>${state.produtos.slice().sort((x,y)=>x.nome.localeCompare(y.nome)).map(p=>`<option value="${p.id}">${esc(p.nome)} · ${fmtMoney(p.preco)}</option>`).join('')}`;
+    const payGrid=`${[['pix','Pix'],['dinheiro','Dinheiro'],['debito',`Débito (−${state.config.taxaDebito}%)`],['credito',`Crédito (−${state.config.taxaCredito}%)`]].map(([v,l])=>`<button class="pay ${v==='pix'?'on':''}" data-p="${v}" onclick="setPacotePay('${v}')">${l}</button>`).join('')}`;
+    if(eraZero && valorPac>0){
+      openModal(`
+        <div class="modal-head"><h2>Concluir Atendimento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+        <div style="padding:12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:14px">
+          <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:4px">📦 1º Atendimento do Pacote</div>
+          <div style="font-size:12px;color:var(--text-2)">Pacote: <strong>${esc(pk?.nome||'Pacote')}</strong> · Cliente: <strong>${esc(a.clienteNome)}</strong></div>
+          <div style="font-size:12px;color:var(--text-2);margin-top:3px">Valor total do pacote: <strong>${fmtMoney(valorPac)}</strong></div>
+        </div>
+        <div class="field"><label class="lbl">Valor pago agora (R$)</label><input id="cpk-valor" type="number" step="0.01" min="0" class="inp" value="${valorPac}" oninput="updResumoPacotePagamento()"></div>
+        <div class="field"><label class="lbl">Produtos vendidos (opcional)</label>
+          <select id="cpk-prod-sel" class="inp" onchange="addProdutoPacote()">${prodOpts}</select>
+          <div id="cpk-prod-list" style="margin-top:8px"></div>
+        </div>
+        <div class="field"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="cpk-pay">${payGrid}</div></div>
+        <div id="cpk-resumo" style="padding:10px 12px;background:var(--green-bg);border-radius:7px;font-size:13px;color:var(--green);margin-bottom:8px"></div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:8px">Se o cliente pagou menos que o total do pacote, o restante fica guardado como saldo devedor — dá pra lançar depois. Produtos entram no mesmo pagamento.</div>
+        <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="concluirPacote('${id}')">✓ Concluir e registrar pagamento</button></div>
+      `);
+      renderProdutosPacote(); updResumoPacotePagamento();
+      return;
+    }
     openModal(`
       <div class="modal-head"><h2>Concluir Atendimento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
       <div style="padding:12px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:14px">
         <div style="font-size:13px;font-weight:600;color:var(--amber);margin-bottom:4px">📦 Atendimento de Pacote</div>
         <div style="font-size:12px;color:var(--text-2)">Pacote: <strong>${esc(pk?.nome||'Pacote')}</strong> · Cliente: <strong>${esc(a.clienteNome)}</strong></div>
         <div style="font-size:12px;color:var(--text-2);margin-top:3px">Serviço: <strong>${esc(a.servico)}</strong> · Restantes após este: <strong>${Math.max(0,rest-1)}</strong></div>
-        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Nenhum lançamento financeiro será criado — pagamento incluído no pacote mensal.</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:6px">Nenhum lançamento financeiro será criado para o serviço — já está incluso no pacote mensal.</div>
+      </div>
+      <div class="field"><label class="lbl">Produtos vendidos (opcional)</label>
+        <select id="cpk-prod-sel" class="inp" onchange="addProdutoPacote()">${prodOpts}</select>
+        <div id="cpk-prod-list" style="margin-top:8px"></div>
+      </div>
+      <div id="cpk-prod-pagamento" style="display:none">
+        <div class="field"><label class="lbl">Quando cobrar os produtos?</label>
+          <div class="toggle-grid">
+            <button class="toggle on-green" id="cpk-modo-agora" onclick="setPacoteProdModo('agora')">💳 Pagar agora</button>
+            <button class="toggle" id="cpk-modo-depois" onclick="setPacoteProdModo('depois')">🕐 Próximo pagamento</button>
+          </div>
+        </div>
+        <div class="field" id="cpk-pay-wrap"><label class="lbl">Forma de Pagamento</label><div class="pay-grid" id="cpk-pay">${payGrid}</div></div>
       </div>
       <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-green" onclick="concluirPacote('${id}')">✓ Concluir e marcar uso</button></div>
     `);
+    renderProdutosPacote();
     return;
   }
   // Fluxo normal (serviço avulso)
@@ -2313,6 +2354,44 @@ let pacoteServicosTemp=[];
 function pacotesAtivosCliente(nomeCliente){
   return state.pacotes.filter(p=>p.ativo!==false&&p.clienteNome===nomeCliente&&p.servicos.some(s=>(s.usados||0)<s.quantidade));
 }
+function pacoteValorPago(p){ return (p.pagamentos||[]).reduce((s,x)=>s+(x.valor||0),0); }
+function pacoteSaldo(p){ return Math.max(0,(p.valorTotal||0)-pacoteValorPago(p)); }
+function modalRegistrarPagamentoPacote(pid){
+  const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
+  const saldo=pacoteSaldo(p);
+  const pendProd=(p.produtosPendentes||[]);
+  const totalProd=pendProd.reduce((s,x)=>s+(x.preco||0),0);
+  const totalCobrar=saldo+totalProd;
+  openModal(`
+    <div class="modal-head"><h2>Registrar Pagamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="font-size:12px;color:var(--text-2);margin-bottom:14px">${esc(p.clienteNome)} · ${esc(p.nome||'Pacote Mensal')}<br>
+      ${saldo>0?`Saldo devedor do pacote: <strong style="color:var(--amber)">${fmtMoney(saldo)}</strong><br>`:''}
+      ${totalProd>0?`Produtos pendentes (${pendProd.length}): <strong style="color:var(--amber)">${fmtMoney(totalProd)}</strong><br>`:''}
+    </div>
+    <div class="field"><label class="lbl">Valor recebido agora (R$)</label><input id="rpk-valor" type="number" step="0.01" min="0" class="inp" value="${totalCobrar}"></div>
+    <div class="field"><label class="lbl">Forma de Pagamento</label><select id="rpk-forma" class="inp"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmarPagamentoPacote('${pid}')">Confirmar</button></div>
+  `);
+}
+function confirmarPagamentoPacote(pid){
+  const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
+  const valor=parseFloat(document.getElementById('rpk-valor').value)||0;
+  const forma=document.getElementById('rpk-forma').value||'pix';
+  if(valor<=0){ alert('Informe um valor válido.'); return; }
+  const pendProd=(p.produtosPendentes||[]);
+  state.pacotes=state.pacotes.map(x=>x.id===pid?{...x,pagamentos:[...(x.pagamentos||[]),{data:todayStr(),valor,forma}],produtosPendentes:[]}:x);
+  state.lancamentos.push({
+    id:uid(),tipo:'entrada',
+    descricao:`Pacote: ${p.nome||'Pacote'} — ${p.clienteNome} (pagamento restante)`+(pendProd.length?` + produtos pendentes`:''),
+    categoria:'Serviço',
+    valor,valorLiquido:calcLiquido(valor,forma),
+    formaPagamento:forma,
+    data:todayStr(),createdAt:Date.now(),origem:'pacote',pacoteId:pid,
+    ...(pendProd.length?{produtosComanda:pendProd.map(pp=>({id:pp.id,nome:pp.nome,preco:pp.preco,custo:pp.custo||0}))}:{})
+  });
+  save('pacotes'); save('lancamentos'); closeModal(); render();
+  alert(`✅ Pagamento de ${fmtMoney(valor)} registrado!`);
+}
 function enviarMsgPacote(pid){
   const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
   const c=state.clientes.find(x=>x.nome===p.clienteNome);
@@ -2324,6 +2403,41 @@ function enviarMsgPacote(pid){
     .replace(/\{valor\}/g,fmtMoney(p.valorTotal||0));
   abrirWhatsApp(c.telefone,msg);
 }
+let pacoteProdutosTemp=[];
+let pacotePagTmp={formaPagamento:'pix'};
+let pacoteProdModo='agora';
+function setPacotePay(v){ pacotePagTmp.formaPagamento=v; document.querySelectorAll('#cpk-pay .pay').forEach(b=>b.classList.toggle('on',b.dataset.p===v)); updResumoPacotePagamento(); }
+function addProdutoPacote(){
+  const sel=document.getElementById('cpk-prod-sel'); const p=state.produtos.find(x=>x.id===sel.value);
+  if(!p) return;
+  pacoteProdutosTemp.push({id:p.id,nome:p.nome,preco:Number(p.preco)||0,custo:Number(p.custo)||0});
+  sel.value=''; renderProdutosPacote(); updResumoPacotePagamento();
+}
+function removeProdutoPacote(i){ pacoteProdutosTemp.splice(i,1); renderProdutosPacote(); updResumoPacotePagamento(); }
+function somaProdutosPacote(){ return pacoteProdutosTemp.reduce((s,p)=>s+(Number(p.preco)||0),0); }
+function renderProdutosPacote(){
+  const box=document.getElementById('cpk-prod-list'); if(!box) return;
+  box.innerHTML = pacoteProdutosTemp.map((p,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--inner);border:1px solid var(--border);border-radius:7px;margin-bottom:6px;font-size:12px">
+    <span>${esc(p.nome)}</span><span style="display:flex;align-items:center;gap:10px"><span style="color:var(--gold)">${fmtMoney(p.preco)}</span><button onclick="removeProdutoPacote(${i})" style="background:none;border:none;color:var(--red);font-size:15px;cursor:pointer">×</button></span>
+  </div>`).join('');
+  const pagBox=document.getElementById('cpk-prod-pagamento');
+  if(pagBox) pagBox.style.display = pacoteProdutosTemp.length? 'block':'none';
+}
+function setPacoteProdModo(modo){
+  pacoteProdModo=modo;
+  const bA=document.getElementById('cpk-modo-agora'), bD=document.getElementById('cpk-modo-depois'), payWrap=document.getElementById('cpk-pay-wrap');
+  if(bA) bA.classList.toggle('on-green',modo==='agora');
+  if(bD) bD.classList.toggle('on-green',modo==='depois');
+  if(payWrap) payWrap.style.display = modo==='agora'?'block':'none';
+}
+function updResumoPacotePagamento(){
+  const box=document.getElementById('cpk-resumo'); if(!box) return;
+  const valPac=parseFloat(document.getElementById('cpk-valor')?.value)||0;
+  const prod=somaProdutosPacote();
+  const total=valPac+prod;
+  const liq=calcLiquido(total,pacotePagTmp.formaPagamento);
+  box.innerHTML=(prod>0?`Pacote ${fmtMoney(valPac)} + Produtos ${fmtMoney(prod)}<br>`:'')+`Total a receber: <strong>${fmtMoney(total)}</strong>`+(Math.abs(liq-total)>0.001?` · Líquido após taxa: <strong>${fmtMoney(liq)}</strong>`:'');
+}
 function concluirPacote(id){
   const a=state.agendamentos.find(x=>x.id===id); if(!a) return;
   if(a.pacoteId!==undefined&&a.pacoteServIdx!==undefined){
@@ -2331,35 +2445,76 @@ function concluirPacote(id){
     const si=a.pacoteServIdx;
     const eraZero = pac && (pac.servicos[si]?.usados||0)===0;
     state.pacotes=state.pacotes.map(p=>p.id===a.pacoteId?{...p,servicos:p.servicos.map((s,i)=>i===si?{...s,usados:(s.usados||0)+1}:s)}:p);
-    save('pacotes');
     // lançamento financeiro
     const nomePac = pac?.nome||'Pacote';
     const valorPac = pac?.valorTotal||0;
+    const forma = pacotePagTmp.formaPagamento||'pix';
+    const somaProd = somaProdutosPacote();
     if(eraZero && valorPac>0){
-      // 1º serviço do ciclo: lança entrada com valor
+      // 1º serviço do ciclo: lança entrada com o valor efetivamente pago (pode ser parcial)
+      const inputValor=document.getElementById('cpk-valor');
+      let valorPago=inputValor?(parseFloat(inputValor.value)||0):valorPac;
+      if(valorPago<0) valorPago=0;
+      if(valorPago>valorPac) valorPago=valorPac;
       state.lancamentos.push({
         id:uid(),tipo:'entrada',
         descricao:`Pacote: ${nomePac} — ${a.clienteNome} (1º atendimento do mês)`,
         categoria:'Serviço',
-        valor:valorPac,valorLiquido:valorPac,
-        formaPagamento:'pix',
-        data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote',barbeiro:a.barbeiro,agendamentoId:a.id
+        valor:valorPago,valorLiquido:calcLiquido(valorPago,forma),
+        formaPagamento:forma,
+        data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote',pacoteId:a.pacoteId,barbeiro:a.barbeiro,agendamentoId:a.id
       });
+      state.pacotes=state.pacotes.map(p=>p.id===a.pacoteId?{...p,pagamentos:[...(p.pagamentos||[]),{data:todayStr(),valor:valorPago,forma}]}:p);
+      if(somaProd>0){
+        state.lancamentos.push({
+          id:uid(),tipo:'entrada',
+          descricao:`🛍️ Produtos vendidos — ${a.clienteNome} (pacote)`,
+          categoria:'Produto',
+          valor:somaProd,valorLiquido:calcLiquido(somaProd,forma),
+          formaPagamento:forma,
+          data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote_produto',pacoteId:a.pacoteId,barbeiro:a.barbeiro,agendamentoId:a.id,
+          produtosComanda:pacoteProdutosTemp.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0}))
+        });
+      }
     } else {
-      // demais serviços: lança informativo com valor 0
+      // demais serviços: lança informativo com valor 0 (o serviço já está incluso no pacote)
       state.lancamentos.push({
         id:uid(),tipo:'entrada',
         descricao:`📦 Pacote: ${nomePac} — ${a.clienteNome} — ${a.servico} (incluso no pacote)`,
         categoria:'Serviço',
         valor:0,valorLiquido:0,
         formaPagamento:'pix',
-        data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote_informativo'
+        data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote_informativo',pacoteId:a.pacoteId
       });
+      if(somaProd>0){
+        if(pacoteProdModo==='agora'){
+          state.lancamentos.push({
+            id:uid(),tipo:'entrada',
+            descricao:`🛍️ Produtos vendidos — ${a.clienteNome} (pacote)`,
+            categoria:'Produto',
+            valor:somaProd,valorLiquido:calcLiquido(somaProd,forma),
+            formaPagamento:forma,
+            data:todayStr(),dataAgendamento:a.data,createdAt:Date.now(),origem:'pacote_produto',pacoteId:a.pacoteId,barbeiro:a.barbeiro,agendamentoId:a.id,
+            produtosComanda:pacoteProdutosTemp.map(p=>({id:p.id,nome:p.nome,preco:p.preco,custo:p.custo||0}))
+          });
+        } else {
+          // adia a cobrança para o próximo pagamento do pacote (fica pendente vinculado ao pacote)
+          state.pacotes=state.pacotes.map(p=>p.id===a.pacoteId?{...p,produtosPendentes:[...(p.produtosPendentes||[]),...pacoteProdutosTemp.map(pp=>({...pp,data:todayStr()}))]}:p);
+        }
+      }
     }
+    // baixa de estoque: o produto já saiu da prateleira, seja pago agora ou depois
+    if(pacoteProdutosTemp.length){
+      pacoteProdutosTemp.forEach(cp=>{ const prod=state.produtos.find(x=>x.id===cp.id); if(prod && prod.estoque!==''&&prod.estoque!=null) prod.estoque=Math.max(0,parseInt(prod.estoque)-1); });
+      save('produtos');
+    }
+    save('pacotes');
     save('lancamentos');
   }
   state.agendamentos=state.agendamentos.map(x=>x.id===id?{...x,status:'concluido'}:x);
-  save('agendamentos'); closeModal(); render();
+  save('agendamentos');
+  pacoteProdutosTemp=[]; pacotePagTmp={formaPagamento:'pix'}; pacoteProdModo='agora';
+  closeModal(); render();
   if(_modoOpAtivo){ const ov=document.getElementById('modo-op-overlay'); if(ov) ov.style.display='flex'; setTimeout(renderModoOp,100); }
 }
 function pagarComissao(barbeiro, valor){
@@ -2389,18 +2544,30 @@ function viewPacotes(){
       const total=p.servicos.reduce((s,x)=>s+x.quantidade,0);
       const usados=p.servicos.reduce((s,x)=>s+(x.usados||0),0);
       const pct=total>0?Math.round(usados/total*100):0;
+      const pago=pacoteValorPago(p);
+      const saldo=pacoteSaldo(p);
+      const pendProd=(p.produtosPendentes||[]);
+      const totalProdPend=pendProd.reduce((s,x)=>s+(x.preco||0),0);
       return `<div class="card list-item" style="padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
           <div><div style="font-weight:700;font-size:14px;color:var(--gold)">${esc(p.clienteNome)}</div>
             <div style="font-size:12px;color:var(--text-2);margin-top:2px">${esc(p.nome||'Pacote Mensal')} · ${p.mes||''}</div></div>
           <div style="text-align:right"><div style="font-size:15px;font-weight:700;color:var(--green)">${fmtMoney(p.valorTotal||0)}</div><div style="font-size:10px;color:var(--text-3)">/mês</div></div>
         </div>
+        ${(saldo>0||totalProdPend>0)?`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--amber-bg);border:1px solid rgba(245,158,11,.25);border-radius:8px;margin-bottom:10px;gap:8px">
+          <span style="font-size:12px;color:var(--amber)">
+            ${saldo>0?`⚠️ Pago ${fmtMoney(pago)} de ${fmtMoney(p.valorTotal||0)} · Saldo: <strong>${fmtMoney(saldo)}</strong>`:''}
+            ${totalProdPend>0?`${saldo>0?'<br>':''}🛍️ ${pendProd.length} produto(s) pendente(s): <strong>${fmtMoney(totalProdPend)}</strong>`:''}
+          </span>
+          <button class="btn btn-amber btn-sm" style="flex-shrink:0" onclick="modalRegistrarPagamentoPacote('${p.id}')">💰 Registrar</button>
+        </div>`:(p.valorTotal>0?`<div style="font-size:11px;color:var(--green);margin-bottom:10px">✓ Pacote quitado</div>`:'')}
         <div style="background:var(--border);border-radius:6px;height:6px;margin-bottom:8px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${pct>=100?'var(--red)':pct>=70?'var(--amber)':'var(--green)'};border-radius:6px"></div></div>
         <div style="font-size:11px;color:var(--text-3);margin-bottom:10px">${usados}/${total} serviços usados (${pct}%)</div>
         ${p.servicos.map((s,si)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--inner);border-radius:7px;margin-bottom:5px">
           <span style="font-size:12px">${esc(s.servico)}</span>
-          <div style="display:flex;align-items:center;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:12px;color:${(s.usados||0)>=s.quantidade?'var(--red)':'var(--text-2)'}"><strong style="color:var(--text)">${s.usados||0}</strong>/${s.quantidade}</span>
+            ${(s.usados||0)>0?`<button class="btn btn-red btn-sm" style="padding:2px 8px;font-size:11px" onclick="diminuirServicoPacote('${p.id}',${si})">−1</button>`:''}
             ${(s.usados||0)<s.quantidade?`<button class="btn btn-green btn-sm" style="padding:2px 8px;font-size:11px" onclick="usarServicoPacote('${p.id}',${si})">+1</button>`:'<span style="font-size:10px;color:var(--red)">Esgotado</span>'}
           </div></div>`).join('')}
         <div class="actions" style="margin-top:10px">
@@ -2415,9 +2582,37 @@ function usarServicoPacote(pid,si){
   state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,servicos:p.servicos.map((s,i)=>i===si?{...s,usados:(s.usados||0)+1}:s)}:p);
   save('pacotes'); render();
 }
+function diminuirServicoPacote(pid,si){
+  const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
+  const s=p.servicos[si]; if(!s||(s.usados||0)<=0) return;
+  if(!confirm(`Reduzir em 1 o uso de "${s.servico}" deste pacote?`)) return;
+  state.pacotes=state.pacotes.map(x=>x.id===pid?{...x,servicos:x.servicos.map((sv,i)=>i===si?{...sv,usados:Math.max(0,(sv.usados||0)-1)}:sv)}:x);
+  save('pacotes'); render();
+  modalEscolherLancamentoPacote(pid);
+}
+function lancamentosDoPacote(p){
+  return state.lancamentos.filter(l=> l.pacoteId===p.id || (!l.pacoteId && ['pacote','pacote_informativo','pacote_produto'].includes(l.origem) && l.descricao && l.descricao.includes(p.clienteNome)))
+    .sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+}
+function modalEscolherLancamentoPacote(pid){
+  const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
+  const lancs=lancamentosDoPacote(p);
+  openModal(`
+    <div class="modal-head"><h2>Excluir lançamento do pacote</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
+    <div style="font-size:12px;color:var(--text-2);margin-bottom:12px">Uso reduzido em 1. Se algum lançamento financeiro deste pacote ficou errado, selecione abaixo qual excluir do sistema:</div>
+    ${lancs.length?lancs.map(l=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;background:var(--inner);border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+      <span style="font-size:12px">${esc(l.descricao)}<br><span style="color:var(--text-3);font-size:11px">${l.data} · ${fmtMoney(l.valor||0)}</span></span>
+      <button class="btn btn-red btn-sm" style="flex-shrink:0" onclick="delLanc('${l.id}');modalEscolherLancamentoPacote('${pid}')">Excluir</button>
+    </div>`).join(''):'<p style="color:var(--text-3);font-size:12px;text-align:center;padding:12px 0">Nenhum lançamento encontrado para este pacote.</p>'}
+    <div class="modal-foot"><button class="btn" onclick="closeModal()">Fechar</button></div>
+  `);
+}
 function resetarPacote(pid){
-  if(!confirm('Reiniciar o uso de todos os serviços deste pacote para o próximo mês?')) return;
-  state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,servicos:p.servicos.map(s=>({...s,usados:0})),mes:todayStr().slice(0,7)}:p);
+  const p0=state.pacotes.find(x=>x.id===pid);
+  if(p0 && (pacoteSaldo(p0)>0 || (p0.produtosPendentes||[]).length>0)){
+    if(!confirm(`Este pacote ainda tem saldo devedor e/ou produtos pendentes. Reiniciar mesmo assim? (essas pendências serão zeradas)`)) return;
+  } else if(!confirm('Reiniciar o uso de todos os serviços deste pacote para o próximo mês?')) return;
+  state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,servicos:p.servicos.map(s=>({...s,usados:0})),pagamentos:[],produtosPendentes:[],mes:todayStr().slice(0,7)}:p);
   save('pacotes'); render();
 }
 function encerrarPacote(pid){ if(!confirm('Encerrar este pacote?')) return; state.pacotes=state.pacotes.map(p=>p.id===pid?{...p,ativo:false}:p); save('pacotes'); render(); }

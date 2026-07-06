@@ -2443,7 +2443,7 @@ function concluirPacote(id){
   if(a.pacoteId!==undefined&&a.pacoteServIdx!==undefined){
     const pac=state.pacotes.find(p=>p.id===a.pacoteId);
     const si=a.pacoteServIdx;
-    const eraZero = pac && (pac.servicos[si]?.usados||0)===0;
+    const eraZero = pac && (pac.pagamentos||[]).length===0;
     state.pacotes=state.pacotes.map(p=>p.id===a.pacoteId?{...p,servicos:p.servicos.map((s,i)=>i===si?{...s,usados:(s.usados||0)+1}:s)}:p);
     // lançamento financeiro
     const nomePac = pac?.nome||'Pacote';

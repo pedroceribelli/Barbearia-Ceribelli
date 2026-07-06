@@ -1567,7 +1567,7 @@ function modalConcluir(id){
     const pk=state.pacotes.find(x=>x.id===a.pacoteId);
     const s=pk?.servicos[a.pacoteServIdx];
     const rest=s?(s.quantidade-(s.usados||0)):0;
-    const eraZero = s && (s.usados||0)===0;
+    const eraZero = pk && (pk.pagamentos||[]).length===0;
     const valorPac = pk?.valorTotal||0;
     pacoteProdutosTemp=[]; pacotePagTmp={formaPagamento:'pix'}; pacoteProdModo='agora';
     const prodOpts=`<option value="">Selecione um produto para adicionar...</option>${state.produtos.slice().sort((x,y)=>x.nome.localeCompare(y.nome)).map(p=>`<option value="${p.id}">${esc(p.nome)} · ${fmtMoney(p.preco)}</option>`).join('')}`;

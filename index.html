@@ -2356,12 +2356,26 @@ function pacotesAtivosCliente(nomeCliente){
 }
 function pacoteValorPago(p){ return (p.pagamentos||[]).reduce((s,x)=>s+(x.valor||0),0); }
 function pacoteSaldo(p){ return Math.max(0,(p.valorTotal||0)-pacoteValorPago(p)); }
+/* Descobre qual barbeiro mais atendeu este pacote (para sugerir na hora de registrar o pagamento).
+   Ordem: barbeiro fixo do pacote → barbeiro que mais atendeu → barbeiro logado. */
+function barbeiroSugeridoPacote(p){
+  if(!p) return currentBarbeiro||'';
+  if(p.barbeiro) return p.barbeiro;
+  const cont={};
+  state.agendamentos
+    .filter(a=>a.pacoteId===p.id && a.barbeiro && a.status!=='cancelado')
+    .forEach(a=>{ cont[a.barbeiro]=(cont[a.barbeiro]||0)+1; });
+  const top=Object.entries(cont).sort((a,b)=>b[1]-a[1])[0];
+  return top?top[0]:(currentBarbeiro||'');
+}
 function modalRegistrarPagamentoPacote(pid){
   const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
   const saldo=pacoteSaldo(p);
   const pendProd=(p.produtosPendentes||[]);
   const totalProd=pendProd.reduce((s,x)=>s+(x.preco||0),0);
   const totalCobrar=saldo+totalProd;
+  const barbSug=barbeiroSugeridoPacote(p);
+  const barbs=(state.config.barbeiros||[]);
   openModal(`
     <div class="modal-head"><h2>Registrar Pagamento</h2><button onclick="closeModal()">${ICON.x(20)}</button></div>
     <div style="font-size:12px;color:var(--text-2);margin-bottom:14px">${esc(p.clienteNome)} · ${esc(p.nome||'Pacote Mensal')}<br>
@@ -2370,6 +2384,13 @@ function modalRegistrarPagamentoPacote(pid){
     </div>
     <div class="field"><label class="lbl">Valor recebido agora (R$)</label><input id="rpk-valor" type="number" step="0.01" min="0" class="inp" value="${totalCobrar}"></div>
     <div class="field"><label class="lbl">Forma de Pagamento</label><select id="rpk-forma" class="inp"><option value="pix">Pix</option><option value="dinheiro">Dinheiro</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>
+    <div class="field"><label class="lbl">Barbeiro (para comissão)</label>
+      <select id="rpk-barb" class="inp">
+        <option value="">Selecionar...</option>
+        ${barbs.map(b=>`<option ${barbSug===b?'selected':''}>${esc(b)}</option>`).join('')}
+      </select>
+      ${barbSug?`<p style="font-size:11px;color:var(--text-3);margin-top:5px">Sugerido: ${esc(barbSug)} (quem mais atendeu este pacote). Pode trocar se quiser.</p>`:`<p style="font-size:11px;color:var(--amber);margin-top:5px">⚠️ Sem barbeiro definido, essa receita não entra na comissão de ninguém.</p>`}
+    </div>
     <div class="modal-foot"><button class="btn" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="confirmarPagamentoPacote('${pid}')">Confirmar</button></div>
   `);
 }
@@ -2377,20 +2398,23 @@ function confirmarPagamentoPacote(pid){
   const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
   const valor=parseFloat(document.getElementById('rpk-valor').value)||0;
   const forma=document.getElementById('rpk-forma').value||'pix';
+  const barbeiro=(document.getElementById('rpk-barb')?.value)||'';
   if(valor<=0){ alert('Informe um valor válido.'); return; }
+  if(!barbeiro && (state.config.barbeiros||[]).length && !confirm('Nenhum barbeiro selecionado. Esse valor NÃO vai gerar comissão para ninguém.\n\nRegistrar mesmo assim?')) return;
   const pendProd=(p.produtosPendentes||[]);
-  state.pacotes=state.pacotes.map(x=>x.id===pid?{...x,pagamentos:[...(x.pagamentos||[]),{data:todayStr(),valor,forma}],produtosPendentes:[]}:x);
+  state.pacotes=state.pacotes.map(x=>x.id===pid?{...x,pagamentos:[...(x.pagamentos||[]),{data:todayStr(),valor,forma,barbeiro}],produtosPendentes:[]}:x);
   state.lancamentos.push({
     id:uid(),tipo:'entrada',
     descricao:`Pacote: ${p.nome||'Pacote'} — ${p.clienteNome} (pagamento restante)`+(pendProd.length?` + produtos pendentes`:''),
     categoria:'Serviço',
     valor,valorLiquido:calcLiquido(valor,forma),
     formaPagamento:forma,
+    barbeiro,
     data:todayStr(),createdAt:Date.now(),origem:'pacote',pacoteId:pid,
     ...(pendProd.length?{produtosComanda:pendProd.map(pp=>({id:pp.id,nome:pp.nome,preco:pp.preco,custo:pp.custo||0}))}:{})
   });
   save('pacotes'); save('lancamentos'); closeModal(); render();
-  alert(`✅ Pagamento de ${fmtMoney(valor)} registrado!`);
+  alert(`✅ Pagamento de ${fmtMoney(valor)} registrado!${barbeiro?`\nComissão vai para: ${barbeiro}`:''}`);
 }
 function enviarMsgPacote(pid){
   const p=state.pacotes.find(x=>x.id===pid); if(!p) return;
@@ -2824,7 +2848,7 @@ function viewFinanceiro(){
           <div style="text-align:right;flex-shrink:0;margin-left:10px"><div style="font-size:15px;font-weight:700;color:${valorCor}">${valorStr}</div><div style="font-size:10px;color:var(--text-3);margin-top:2px">${fmtDate(l.data)}</div></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
-          ${l.origem==='produto'?`<div style="display:flex;align-items:center;gap:6px;font-size:11px"><span style="color:var(--text-3)">Comissão p/:</span><select class="inp" style="font-size:11px;padding:2px 6px;width:auto;min-width:0" onchange="setLancBarbeiro('${l.id}',this.value)"><option value="">—</option>${(state.config.barbeiros||[]).map(b=>`<option ${l.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>`:'<span></span>'}
+          ${(l.origem==='produto'||l.origem==='pacote')?`<div style="display:flex;align-items:center;gap:6px;font-size:11px"><span style="color:${l.barbeiro?'var(--text-3)':'var(--amber)'}">Comissão p/:</span><select class="inp" style="font-size:11px;padding:2px 6px;width:auto;min-width:0;${l.barbeiro?'':'border-color:var(--amber)'}" onchange="setLancBarbeiro('${l.id}',this.value)"><option value="">—</option>${(state.config.barbeiros||[]).map(b=>`<option ${l.barbeiro===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>`:'<span></span>'}
           <button class="btn btn-red" style="font-size:10px;padding:4px 10px" onclick="delLanc('${l.id}')">Remover</button>
         </div>
       </div>`;}).join(''):`<div class="card empty">${ICON.dollar(36,'#252525')}<p>Nenhum lançamento${finModo!=='tudo'?' neste período':''}</p><button class="btn btn-primary" onclick="modalLanc()">Novo Lançamento</button></div>`}
